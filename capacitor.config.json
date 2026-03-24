@@ -1,0 +1,14 @@
+{
+  "appId": "com.aichat.app",
+  "appName": "AIChat",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http"
+  },
+  "plugins": {
+    "Camera": {
+      "promptLabelPhoto": "选择照片",
+      "promptLabelPicture": "拍照"
+    }
+  }
+}
