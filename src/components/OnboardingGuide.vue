@@ -36,6 +36,12 @@ const bubbleStyle = ref({
 // 气泡箭头方向
 const arrowPosition = ref('bottom')
 
+// Overlay 样式（用于 mask 定位）
+const overlayStyle = ref({
+  '--highlight-x': '50%',
+  '--highlight-y': '50%'
+})
+
 // 更新高亮位置 - 气泡紧贴目标元素且不超出可见范围
 const updateHighlightPosition = () => {
   const step = steps[currentStep.value]
@@ -59,8 +65,11 @@ const updateHighlightPosition = () => {
       top: `${rect.top - padding}px`,
       left: `${rect.left - padding}px`,
       width: `${rect.width + padding * 2}px`,
-      height: `${rect.height + padding * 2}px`,
-      // 设置 mask 圆心位置（高亮框中心）
+      height: `${rect.height + padding * 2}px`
+    }
+
+    // 设置 mask 圆心位置（高亮框中心）- 在 overlay 上设置
+    overlayStyle.value = {
       '--highlight-x': `${rect.left + rect.width / 2}px`,
       '--highlight-y': `${rect.top + rect.height / 2}px`
     }
@@ -69,52 +78,27 @@ const updateHighlightPosition = () => {
     const bubbleHeight = 90
 
     // 获取用户指定的位置偏好
-    let preferredPosition = 'top'
-    if (step.bubbleOffset && typeof step.bubbleOffset === 'string') {
-      preferredPosition = step.bubbleOffset
-    } else {
-      const dataPosition = element.getAttribute('data-position')
-      if (dataPosition && ['top', 'bottom', 'left', 'right'].includes(dataPosition)) {
-        preferredPosition = dataPosition
-      }
-    }
+    const dataPosition = element.getAttribute('data-position')
+    console.log('OnboardingGuide: data-position =', dataPosition, 'for', step.target)
 
-    // 计算各方向可用空间
+    // 始终尝试放在上方（用户要求）
     const spaceAbove = rect.top - padding
-    const spaceBelow = viewportHeight - rect.bottom - padding
-    const spaceRight = viewportWidth - rect.right - padding
-    const spaceLeft = rect.left - padding
+    const elemCenterX = rect.left + rect.width / 2
 
-    let bubbleTop = 0
-    let bubbleLeft = 0
-    let arrowPos = 'bottom'
+    let bubbleTop, bubbleLeft, arrowPos
 
-    // 智能选择最佳位置
-    if (preferredPosition === 'top' && spaceAbove >= bubbleHeight + gap + safeMargin) {
-      // 上方有足够空间
-      arrowPos = 'bottom'
+    if (spaceAbove >= bubbleHeight + gap + safeMargin) {
+      // 上方空间足够：气泡在上，箭头在下
       bubbleTop = rect.top - bubbleHeight - gap
-      bubbleLeft = Math.max(safeMargin, Math.min(rect.left + rect.width / 2 - bubbleWidth / 2, viewportWidth - bubbleWidth - safeMargin))
-    } else if (preferredPosition === 'bottom' && spaceBelow >= bubbleHeight + gap + safeMargin) {
-      // 下方有足够空间
-      arrowPos = 'top'
-      bubbleTop = rect.bottom + gap
-      bubbleLeft = Math.max(safeMargin, Math.min(rect.left + rect.width / 2 - bubbleWidth / 2, viewportWidth - bubbleWidth - safeMargin))
-    } else if (preferredPosition === 'left' && spaceLeft >= bubbleWidth + gap + safeMargin) {
-      // 左侧有足够空间
-      arrowPos = 'right'
-      bubbleTop = rect.top + rect.height / 2 - bubbleHeight / 2
-      bubbleLeft = rect.left - bubbleWidth - gap
-    } else if (preferredPosition === 'right' && spaceRight >= bubbleWidth + gap + safeMargin) {
-      // 右侧有足够空间
-      arrowPos = 'left'
-      bubbleTop = rect.top + rect.height / 2 - bubbleHeight / 2
-      bubbleLeft = rect.right + gap
-    } else {
-      // 找不到合适位置，使用上方（可能空间不足但尽量放置）
       arrowPos = 'bottom'
-      bubbleTop = Math.max(safeMargin, rect.top - bubbleHeight - gap)
-      bubbleLeft = Math.max(safeMargin, Math.min(rect.left + rect.width / 2 - bubbleWidth / 2, viewportWidth - bubbleWidth - safeMargin))
+      bubbleLeft = Math.max(safeMargin, Math.min(elemCenterX - bubbleWidth / 2, viewportWidth - bubbleWidth - safeMargin))
+      console.log('OnboardingGuide: Positioning ABOVE, bubbleTop =', bubbleTop)
+    } else {
+      // 上方空间不足：气泡在下，箭头在上
+      bubbleTop = rect.bottom + gap
+      arrowPos = 'top'
+      bubbleLeft = Math.max(safeMargin, Math.min(elemCenterX - bubbleWidth / 2, viewportWidth - bubbleWidth - safeMargin))
+      console.log('OnboardingGuide: Positioning BELOW (not enough space above), bubbleTop =', bubbleTop, 'spaceAbove =', spaceAbove, 'needed =', bubbleHeight + gap + safeMargin)
     }
 
     // 约束边界
@@ -122,11 +106,12 @@ const updateHighlightPosition = () => {
     bubbleLeft = Math.max(safeMargin, Math.min(bubbleLeft, viewportWidth - bubbleWidth - safeMargin))
 
     arrowPosition.value = arrowPos
-
     bubbleStyle.value = {
       top: `${bubbleTop}px`,
       left: `${bubbleLeft}px`
     }
+
+    console.log('OnboardingGuide: Final bubble position:', bubbleStyle.value, 'arrow:', arrowPos)
   })
 }
 
@@ -169,7 +154,7 @@ watch(() => props.visible, (newVal) => {
 
 <template>
   <Teleport to="body">
-    <div v-if="visible" class="onboarding-overlay">
+    <div v-if="visible" class="onboarding-overlay" :style="overlayStyle">
       <div class="onboarding-mask"></div>
       <div class="onboarding-highlight" :style="highlightStyle"></div>
       <div
@@ -209,6 +194,9 @@ watch(() => props.visible, (newVal) => {
   height: 100vh;
   z-index: 9999;
   pointer-events: none;
+  /* CSS variables for mask positioning */
+  --highlight-x: 50%;
+  --highlight-y: 50%;
 }
 
 .onboarding-mask {
@@ -221,8 +209,8 @@ watch(() => props.visible, (newVal) => {
   backdrop-filter: blur(4px);
   pointer-events: auto;
   /* 高亮区域不加遮罩 - 使用 mask 挖洞 */
-  mask: radial-gradient(circle 60px at var(--highlight-x, 50%) var(--highlight-y, 50%), transparent 58px, black 60px);
-  -webkit-mask: radial-gradient(circle 60px at var(--highlight-x, 50%) var(--highlight-y, 50%), transparent 58px, black 60px);
+  mask: radial-gradient(circle 80px at var(--highlight-x) var(--highlight-y), transparent 78px, black 80px);
+  -webkit-mask: radial-gradient(circle 80px at var(--highlight-x) var(--highlight-y), transparent 78px, black 80px);
 }
 
 .onboarding-highlight {
