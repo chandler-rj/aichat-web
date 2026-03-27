@@ -1,7 +1,7 @@
-// API 配置 - 远程服务器
-var API_BASE_URL = 'http://123.56.55.115:8090/api'
+// API 配置
+var API_BASE_URL = 'http://123.56.55.115:8080/api'
 
-// Capacitor Android 环境检测
+// Capacitor Android 环境检测 - 生产环境使用远程服务器
 if (typeof window !== 'undefined' && window.Capacitor) {
   // Android 原生环境 - 使用远程服务器
   API_BASE_URL = 'http://123.56.55.115:8090/api'

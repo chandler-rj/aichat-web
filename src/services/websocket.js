@@ -10,11 +10,16 @@ let reconnectTimer = null
 let isManualDisconnect = false
 
 // Capacitor Android 环境检测 - 简化版
-var WS_URL = 'ws://123.56.55.115:8090/ws'
+var WS_URL = 'ws://localhost:8080/ws'
 
-// 如果 Capacitor 存在，使用远程服务器
+// 如果 Capacitor 存在或非开发环境，使用远程服务器
 if (typeof window !== 'undefined' && window.Capacitor) {
   WS_URL = 'ws://123.56.55.115:8090/ws'
+} else if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
+  // 生产环境使用当前主机
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = window.location.host;
+  WS_URL = `${protocol}//${host}/ws`;
 }
 
 // 延迟重连（5秒）
@@ -33,7 +38,7 @@ function doConnect() {
     stompClient.heartbeat.outgoing = 0
     stompClient.heartbeat.incoming = 0
 
-    stompClient.connect({}, (frame) => {
+    stompClient.connect({'Authorization': `Bearer ${getAccessToken()}`}, (frame) => {
       console.log('WebSocket: Connected')
       isManualDisconnect = false
 

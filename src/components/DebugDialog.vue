@@ -103,6 +103,18 @@ const sendDebugRequest = async () => {
   debugLoading.value = true
   debugResponse.value = ''
   try {
+    // 如果用户编辑过请求JSON，使用编辑后的内容
+    let requestBody = null
+    if (debugRequestJson.value) {
+      try {
+        requestBody = JSON.parse(debugRequestJson.value)
+      } catch (e) {
+        ElMessage.error('请求JSON格式错误，请检查')
+        debugLoading.value = false
+        return
+      }
+    }
+
     const response = await fetch(`${API_BASE_URL}/models/debug/chat`, {
       method: 'POST',
       headers: {
@@ -119,7 +131,8 @@ const sendDebugRequest = async () => {
           model: debugConfig.value.model,
           maxTokens: debugConfig.value.maxTokens,
           temperature: debugConfig.value.temperature
-        }
+        },
+        requestBody  // 传递用户编辑后的请求体
       })
     })
 
@@ -220,7 +233,7 @@ const copyJson = (jsonStr) => {
         type="textarea"
         :rows="8"
         v-model="debugRequestJson"
-        readonly
+        placeholder="预览请求JSON（可编辑后发送）"
         style="font-family: monospace"
       />
     </div>

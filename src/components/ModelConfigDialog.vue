@@ -64,7 +64,9 @@ const openConfig = async (modelType) => {
     // 获取当前配置（如果有）
     const config = await models.getModelConfig(modelType)
     if (config && Object.keys(config).length > 0) {
-      editingConfig.value = { ...config }
+      // 使用当前配置，并补充默认参数
+      const defaults = await models.getDefaultConfig(modelType)
+      editingConfig.value = { ...defaults, ...config }
     } else {
       // 使用默认配置
       const defaults = await models.getDefaultConfig(modelType)
