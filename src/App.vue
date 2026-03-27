@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { auth } from './services/auth'
+import { auth, authorizedFetch } from './services/auth'
 import { users } from './services/users'
 import { sessions } from './services/sessions'
 import { models } from './services/models'
@@ -155,13 +155,6 @@ onMounted(async () => {
 
 // Auth methods
 const initAuth = async () => {
-  // 注册 token 过期回调
-  setOnTokenExpiredCallback(() => {
-    ElMessage.error('登录已过期，请重新登录')
-    clearAuth()
-    showLoginDialog.value = true
-  })
-
   const accessToken = localStorage.getItem('accessToken')
   const refreshToken = localStorage.getItem('refreshToken')
   if (accessToken && refreshToken) {
@@ -357,8 +350,8 @@ const selectSession = async (session) => {
 
   // Check if running
   try {
-    const runningResp = await fetch(`${API_BASE_URL}/sessions/${session.id}/running`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+    const runningResp = await authorizedFetch(`/sessions/${session.id}/running`, {
+      headers: {}
     })
     isRunning.value = await runningResp.json()
   } catch (e) {
@@ -511,9 +504,9 @@ const startChat = async () => {
     return
   }
   try {
-    await fetch(`${API_BASE_URL}/sessions/${currentSession.value.id}/start`, {
+    await authorizedFetch(`/sessions/${currentSession.value.id}/start`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+      headers: {}
     })
     isRunning.value = true
     ElMessage.success('对话已启动')
@@ -525,9 +518,9 @@ const startChat = async () => {
 
 const stopChat = async () => {
   try {
-    await fetch(`${API_BASE_URL}/sessions/${currentSession.value.id}/stop`, {
+    await authorizedFetch(`/sessions/${currentSession.value.id}/stop`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+      headers: {}
     })
     isRunning.value = false
     ElMessage.success('对话已停止')
@@ -592,11 +585,10 @@ const sendManualMessage = async () => {
         const user = userList.value.find(u => u.id === userId)
         if (!user) continue
         console.log('App: 发送轮流消息, sessionId:', currentSession.value.id, 'user:', user.name)
-        const response = await fetch(`${API_BASE_URL}/sessions/${currentSession.value.id}/send`, {
+        const response = await authorizedFetch(`/sessions/${currentSession.value.id}/send`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             content: userMessage.content,
@@ -623,9 +615,9 @@ const sendManualMessage = async () => {
 
 const clearMessages = async () => {
   try {
-    await fetch(`${API_BASE_URL}/sessions/${currentSession.value.id}/messages`, {
+    await authorizedFetch(`/sessions/${currentSession.value.id}/messages`, {
       method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+      headers: {}
     })
     messages.value = []
     ElMessage.success('消息已清空')
@@ -657,9 +649,9 @@ const deleteHistorySnapshot = async (id) => {
       cancelButtonText: '取消',
       type: 'warning'
     })
-    await fetch(`${API_BASE_URL}/session-history/${id}`, {
+    await authorizedFetch(`/session-history/${id}`, {
       method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+      headers: {}
     })
     ElMessage.success('删除成功')
     await loadHistoryGroups()
@@ -686,11 +678,10 @@ const switchToCurrentView = () => {
 const importHistory = async () => {
   if (!currentSession.value) return
   try {
-    await fetch(`${API_BASE_URL}/session-history`, {
+    await authorizedFetch(`/session-history`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         sessionId: currentSession.value.id,

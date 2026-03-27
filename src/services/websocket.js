@@ -9,17 +9,24 @@ let currentSessionId = null
 let reconnectTimer = null
 let isManualDisconnect = false
 
-// Capacitor Android 环境检测 - 简化版
-var WS_URL = 'ws://localhost:8080/ws'
+// 从 API_BASE_URL 推导 WebSocket URL，遵循配置分离原则
+function getWsUrl(apiUrl) {
+  // apiUrl 格式: http://host:port/path
+  // 转换为 ws://host:port/ws
+  if (apiUrl.startsWith('https://')) {
+    return apiUrl.replace('https://', 'wss://').replace(/\/api$/, '/ws');
+  } else {
+    return apiUrl.replace('http://', 'ws://').replace(/\/api$/, '/ws');
+  }
+}
 
-// 如果 Capacitor 存在或非开发环境，使用远程服务器
-if (typeof window !== 'undefined' && window.Capacitor) {
-  WS_URL = 'ws://123.56.55.115:8090/ws'
-} else if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
-  // 生产环境使用当前主机
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const host = window.location.host;
-  WS_URL = `${protocol}//${host}/ws`;
+var WS_URL = getWsUrl(API_BASE_URL);
+
+// 如果 Capacitor 存在，已经通过 API_BASE_URL 配置好了
+// 开发环境前端独立运行时，使用 window.location 推导
+if (typeof window !== 'undefined' && !window.Capacitor && API_BASE_URL.includes('localhost')) {
+  // 前端开发服务器运行在独立端口，API 通过代理转发，仍使用正确的推导地址
+  // 保持从 API_BASE_URL 推导即可，无需硬编码
 }
 
 // 延迟重连（5秒）

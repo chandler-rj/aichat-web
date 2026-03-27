@@ -1,15 +1,10 @@
-import { getAccessToken } from './users'
-import API_BASE_URL from './config.js'
+import { request } from './auth'
 
 // 会话相关 API
 export const sessions = {
   // 获取会话列表
   async getSessions() {
-    const response = await fetch(API_BASE_URL + '/sessions', {
-      headers: {
-        'Authorization': `Bearer ${getAccessToken()}`
-      }
-    })
+    const response = await request('GET', '/sessions')
     if (response.ok) {
       return await response.json()
     }
@@ -18,11 +13,7 @@ export const sessions = {
 
   // 获取单个会话
   async getSession(id) {
-    const response = await fetch(API_BASE_URL + `/sessions/${id}`, {
-      headers: {
-        'Authorization': `Bearer ${getAccessToken()}`
-      }
-    })
+    const response = await request('GET', '/sessions/' + id)
     if (response.ok) {
       return await response.json()
     }
@@ -31,14 +22,7 @@ export const sessions = {
 
   // 创建会话
   async createSession(session) {
-    const response = await fetch(API_BASE_URL + '/sessions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getAccessToken()}`
-      },
-      body: JSON.stringify(session)
-    })
+    const response = await request('POST', '/sessions', session)
     if (response.ok) {
       return await response.json()
     }
@@ -48,14 +32,7 @@ export const sessions = {
 
   // 更新会话
   async updateSession(id, session) {
-    const response = await fetch(API_BASE_URL + `/sessions/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getAccessToken()}`
-      },
-      body: JSON.stringify(session)
-    })
+    const response = await request('PUT', '/sessions/' + id, session)
     if (response.ok) {
       return await response.json()
     }
@@ -65,28 +42,13 @@ export const sessions = {
 
   // 删除会话
   async deleteSession(id) {
-    const response = await fetch(API_BASE_URL + `/sessions/${id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${getAccessToken()}`
-      }
-    })
-    if (!response.ok) {
-      throw new Error('删除会话失败')
-    }
+    await request('DELETE', '/sessions/' + id)
   },
 
   // 发送消息
   async sendMessage(sessionId, message) {
     console.log('sessions.sendMessage: 发送消息到 session', sessionId, message)
-    const response = await fetch(API_BASE_URL + `/sessions/${sessionId}/send`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getAccessToken()}`
-      },
-      body: JSON.stringify(message)
-    })
+    const response = await request('POST', '/sessions/' + sessionId + '/send', message)
     if (response.ok) {
       const result = await response.json()
       console.log('sessions.sendMessage: 成功', result)
@@ -98,7 +60,7 @@ export const sessions = {
       const error = await response.json()
       errorMsg = error.message || error.error || errorMsg
     } catch (e) {
-      errorMsg = `HTTP ${response.status}: ${response.statusText}`
+      errorMsg = 'HTTP ' + response.status + ': ' + response.statusText
     }
     console.error('sessions.sendMessage: 失败', errorMsg)
     throw new Error(errorMsg)
@@ -106,11 +68,7 @@ export const sessions = {
 
   // 获取历史会话分组
   async getHistoryGroups() {
-    const response = await fetch(API_BASE_URL + '/session-history', {
-      headers: {
-        'Authorization': `Bearer ${getAccessToken()}`
-      }
-    })
+    const response = await request('GET', '/session-history')
     if (response.ok) {
       return await response.json()
     }
@@ -119,11 +77,7 @@ export const sessions = {
 
   // 获取历史会话消息
   async getHistorySnapshot(snapshotId) {
-    const response = await fetch(API_BASE_URL + `/session-history/${snapshotId}/messages`, {
-      headers: {
-        'Authorization': `Bearer ${getAccessToken()}`
-      }
-    })
+    const response = await request('GET', '/session-history/' + snapshotId + '/messages')
     if (response.ok) {
       return await response.json()
     }
@@ -132,11 +86,11 @@ export const sessions = {
 
   // 导出会话
   async exportSession(id, format = 'json') {
-    const response = await fetch(`${API_BASE_URL}/sessions/${id}/export${format === 'html' ? '/html' : ''}`, {
-      headers: {
-        'Authorization': `Bearer ${getAccessToken()}`
-      }
-    })
+    let path = '/sessions/' + id + '/export'
+    if (format === 'html') {
+      path += '/html'
+    }
+    const response = await request('GET', path)
     if (response.ok) {
       return await response.blob()
     }
@@ -147,14 +101,7 @@ export const sessions = {
   async importHistory(file) {
     const formData = new FormData()
     formData.append('file', file)
-
-    const response = await fetch(API_BASE_URL + '/sessions/import', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${getAccessToken()}`
-      },
-      body: formData
-    })
+    const response = await request('POST', '/sessions/import', formData, true)
     if (response.ok) {
       return await response.json()
     }

@@ -4,14 +4,8 @@ import API_BASE_URL from './config.js'
 export const getAccessToken = () => localStorage.getItem('accessToken')
 export const getRefreshToken = () => localStorage.getItem('refreshToken')
 
-// Token 过期回调
-let onTokenExpiredCallback = null
-export const setOnTokenExpiredCallback = (callback) => {
-  onTokenExpiredCallback = callback
-}
-
 // 通用请求方法
-async function request(method, url, data = null, isFormData = false) {
+export async function request(method, url, data = null, isFormData = false) {
   const accessToken = getAccessToken()
   const headers = {}
   if (accessToken) {
@@ -20,7 +14,8 @@ async function request(method, url, data = null, isFormData = false) {
 
   const config = {
     method,
-    headers
+    headers,
+    credentials: 'include'
   }
 
   if (data) {
@@ -35,12 +30,13 @@ async function request(method, url, data = null, isFormData = false) {
 
   const response = await fetch(API_BASE_URL + url, config)
 
-  // 检测 401 未授权
+  // 如果返回 401（未授权/Token 过期），清除登录状态
   if (response.status === 401) {
-    console.warn('Session expired (401)')
-    if (onTokenExpiredCallback) {
-      onTokenExpiredCallback()
-    }
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('refreshToken')
+    // 刷新页面会触发重新初始化，自动跳转到登录
+    window.location.reload()
+    return response
   }
 
   return response
@@ -143,6 +139,28 @@ export const auth = {
   isLoggedIn() {
     return !!getAccessToken()
   }
+}
+
+// 通用带认证的fetch请求，处理401自动退出
+export async function authorizedFetch(url, config) {
+  const accessToken = getAccessToken()
+  if (accessToken && config.headers) {
+    config.headers.Authorization = `Bearer ${accessToken}`
+  }
+
+  const response = await fetch(API_BASE_URL + url, {
+    ...config,
+    credentials: 'include'
+  })
+
+  // 如果返回 401（未授权/Token 过期），清除登录状态并刷新
+  if (response.status === 401) {
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('refreshToken')
+    window.location.reload()
+  }
+
+  return response
 }
 
 export default auth

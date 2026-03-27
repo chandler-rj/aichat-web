@@ -1,5 +1,5 @@
 import API_BASE_URL from './config.js'
-import { getAccessToken, getRefreshToken } from './auth'
+import { getAccessToken, getRefreshToken, request } from './auth'
 
 // 重新导出供其他模块使用
 export { getAccessToken, getRefreshToken }
@@ -8,11 +8,7 @@ export { getAccessToken, getRefreshToken }
 export const users = {
   // 获取当前账户的所有用户
   async getUsers() {
-    const response = await fetch(API_BASE_URL + '/users', {
-      headers: {
-        'Authorization': `Bearer ${getAccessToken()}`
-      }
-    })
+    const response = await request('GET', '/users')
     if (response.ok) {
       return await response.json()
     }
@@ -21,11 +17,7 @@ export const users = {
 
   // 获取单个用户
   async getUser(id) {
-    const response = await fetch(API_BASE_URL + `/users/${id}`, {
-      headers: {
-        'Authorization': `Bearer ${getAccessToken()}`
-      }
-    })
+    const response = await request('GET', `/users/${id}`)
     if (response.ok) {
       return await response.json()
     }
@@ -34,14 +26,7 @@ export const users = {
 
   // 创建用户
   async createUser(user) {
-    const response = await fetch(API_BASE_URL + '/users', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getAccessToken()}`
-      },
-      body: JSON.stringify(user)
-    })
+    const response = await request('POST', '/users', user)
     if (response.ok) {
       return await response.json()
     }
@@ -51,14 +36,7 @@ export const users = {
 
   // 更新用户
   async updateUser(id, user) {
-    const response = await fetch(API_BASE_URL + `/users/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getAccessToken()}`
-      },
-      body: JSON.stringify(user)
-    })
+    const response = await request('PUT', `/users/${id}`, user)
     if (response.ok) {
       return await response.json()
     }
@@ -68,32 +46,14 @@ export const users = {
 
   // 删除用户
   async deleteUser(id) {
-    const response = await fetch(API_BASE_URL + `/users/${id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${getAccessToken()}`
-      }
-    })
-    if (!response.ok) {
-      throw new Error('删除用户失败')
-    }
+    await request('DELETE', `/users/${id}`)
   },
 
   // 上传头像
   async uploadAvatar(id, file) {
     const formData = new FormData()
     formData.append('file', file)
-
-    const response = await fetch(API_BASE_URL + `/users/${id}/avatar`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${getAccessToken()}`
-      },
-      body: formData
-    })
-    if (!response.ok) {
-      throw new Error('上传头像失败')
-    }
+    await request('POST', `/users/${id}/avatar`, formData, true)
   },
 
   // 获取头像 URL

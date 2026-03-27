@@ -6,9 +6,10 @@
             <certificates src="system" />
         </trust-anchors>
     </base-config>
-    <!-- Allow connections to 10.0.2.2 (emulator localhost alias) -->
+    <!-- Allow connections to local development and remote server -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">10.0.2.2</domain>
         <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="false">123.56.55.115</domain>
     </domain-config>
 </network-security-config>

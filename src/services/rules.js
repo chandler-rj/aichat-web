@@ -1,15 +1,10 @@
-import { getAccessToken } from './auth'
-import API_BASE_URL from './config.js'
+import { request } from './auth'
 
 // 规则相关 API
 export const rules = {
   // 获取规则列表
   async getRules() {
-    const response = await fetch(API_BASE_URL + '/rules', {
-      headers: {
-        'Authorization': `Bearer ${getAccessToken()}`
-      }
-    })
+    const response = await request('GET', '/rules')
     if (response.ok) {
       return await response.json()
     }
@@ -18,11 +13,7 @@ export const rules = {
 
   // 获取单个规则
   async getRule(id) {
-    const response = await fetch(API_BASE_URL + `/rules/${id}`, {
-      headers: {
-        'Authorization': `Bearer ${getAccessToken()}`
-      }
-    })
+    const response = await request('GET', `/rules/${id}`)
     if (response.ok) {
       return await response.json()
     }
@@ -31,14 +22,7 @@ export const rules = {
 
   // 创建规则
   async createRule(rule) {
-    const response = await fetch(API_BASE_URL + '/rules', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getAccessToken()}`
-      },
-      body: JSON.stringify(rule)
-    })
+    const response = await request('POST', '/rules', rule)
     if (response.ok) {
       return await response.json()
     }
@@ -48,14 +32,7 @@ export const rules = {
 
   // 更新规则
   async updateRule(id, rule) {
-    const response = await fetch(API_BASE_URL + `/rules/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getAccessToken()}`
-      },
-      body: JSON.stringify(rule)
-    })
+    const response = await request('PUT', `/rules/${id}`, rule)
     if (response.ok) {
       return await response.json()
     }
@@ -65,15 +42,7 @@ export const rules = {
 
   // 删除规则
   async deleteRule(id) {
-    const response = await fetch(API_BASE_URL + `/rules/${id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${getAccessToken()}`
-      }
-    })
-    if (!response.ok) {
-      throw new Error('删除规则失败')
-    }
+    await request('DELETE', `/rules/${id}`)
   }
 }
 
