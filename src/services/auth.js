@@ -4,6 +4,12 @@ import API_BASE_URL from './config.js'
 export const getAccessToken = () => localStorage.getItem('accessToken')
 export const getRefreshToken = () => localStorage.getItem('refreshToken')
 
+// Token 过期回调
+let onTokenExpiredCallback = null
+export const setOnTokenExpiredCallback = (callback) => {
+  onTokenExpiredCallback = callback
+}
+
 // 通用请求方法
 async function request(method, url, data = null, isFormData = false) {
   const accessToken = getAccessToken()
@@ -28,6 +34,15 @@ async function request(method, url, data = null, isFormData = false) {
   }
 
   const response = await fetch(API_BASE_URL + url, config)
+
+  // 检测 401 未授权
+  if (response.status === 401) {
+    console.warn('Session expired (401)')
+    if (onTokenExpiredCallback) {
+      onTokenExpiredCallback()
+    }
+  }
+
   return response
 }
 

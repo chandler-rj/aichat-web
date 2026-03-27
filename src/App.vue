@@ -155,6 +155,13 @@ onMounted(async () => {
 
 // Auth methods
 const initAuth = async () => {
+  // 注册 token 过期回调
+  setOnTokenExpiredCallback(() => {
+    ElMessage.error('登录已过期，请重新登录')
+    clearAuth()
+    showLoginDialog.value = true
+  })
+
   const accessToken = localStorage.getItem('accessToken')
   const refreshToken = localStorage.getItem('refreshToken')
   if (accessToken && refreshToken) {
