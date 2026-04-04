@@ -202,7 +202,7 @@ const getMessageClass = (message) => {
     <div class="config-form" v-if="!isRunning && currentViewMode === 'current'">
       <div class="config-grid">
         <!-- 对话设置卡片 -->
-        <div class="config-card" :class="{ 'is-collapsed': !settingsExpanded }">
+        <div class="config-card" :class="{ 'is-collapsed': !settingsExpanded, 'is-full-width': settingsExpanded }">
           <div class="config-card-header" @click="settingsExpanded = !settingsExpanded">
             <span class="config-card-title">
               <i :class="settingsExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" class="collapse-icon"></i>
@@ -217,7 +217,7 @@ const getMessageClass = (message) => {
                 <ElInput
                   :model-value="currentSession?.sessionTheme"
                   type="textarea"
-                  :rows="1"
+                  :autosize="{ minRows: 1, maxRows: 8 }"
                   placeholder="设置对话主题"
                   @blur="$emit('update-session')"
                   @input="val => currentSession && (currentSession.sessionTheme = val)"
@@ -243,7 +243,7 @@ const getMessageClass = (message) => {
               </div>
               <div class="config-row">
                 <label class="config-label">模式</label>
-                <ElRadioGroup :model-value="chatMode" @change="$emit('update-session')" size="small">
+                <ElRadioGroup :model-value="chatMode" @change="val => $emit('mode-change', val)" size="small">
                   <ElRadio label="group">群聊</ElRadio>
                   <ElRadio label="turn">轮流</ElRadio>
                 </ElRadioGroup>
@@ -257,7 +257,7 @@ const getMessageClass = (message) => {
                     :max="10000"
                     step="1000"
                     size="small"
-                    @change="$emit('update-session')"
+                    @change="val => $emit('update-field', 'replyInterval', val)"
                   />
                   <span class="config-unit">ms</span>
                 </div>
@@ -270,7 +270,7 @@ const getMessageClass = (message) => {
                     :min="1"
                     :max="50"
                     size="small"
-                    @change="$emit('update-session')"
+                    @change="val => $emit('update-field', 'maxHistoryMessages', val)"
                   />
                   <span class="config-unit">条</span>
                 </div>
@@ -577,6 +577,10 @@ const getMessageClass = (message) => {
   background: var(--bg-hover);
 }
 
+.config-card.is-full-width {
+  grid-column: 1 / -1;
+}
+
 .config-card-header {
   display: flex;
   justify-content: space-between;
@@ -776,10 +780,43 @@ const getMessageClass = (message) => {
 }
 
 .message-avatar {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   object-fit: cover;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--text-white);
+  font-size: 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.message-avatar.gpt,
+.message-avatar.OPENAI {
+  background: linear-gradient(135deg, var(--success) 0%, var(--success-hover) 100%);
+}
+
+.message-avatar.qwen,
+.message-avatar.QWEN {
+  background: linear-gradient(135deg, #7070FF 0%, #5050D0 100%);
+}
+
+.message-avatar.minimax,
+.message-avatar.MINIMAX {
+  background: linear-gradient(135deg, var(--warning) 0%, #E09A00 100%);
+}
+
+.message-avatar.volcano,
+.message-avatar.VOLCANO {
+  background: linear-gradient(135deg, var(--danger) 0%, var(--danger-hover) 100%);
+}
+
+.message-avatar.gemini,
+.message-avatar.GEMINI {
+  background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%);
 }
 
 .message-sender {
@@ -837,22 +874,22 @@ const getMessageClass = (message) => {
   white-space: pre-wrap;
   word-break: break-word;
   position: relative;
+  box-shadow: var(--shadow-sm);
 }
 
 .message-item.user .message-content {
   background: linear-gradient(135deg, var(--primary-light) 0%, #FFF5F5 100%);
   color: var(--text-title);
-  margin-left: 40px;
-  border-left: 3px solid var(--primary);
-  box-shadow: 0 2px 8px rgba(255, 107, 107, 0.15);
+  margin-left: 52px;
+  border-bottom-right-radius: var(--radius-sm);
 }
 
 .message-item.ai .message-content {
   background: var(--bg-card);
   color: var(--text-body);
   border: 1px solid var(--border-light);
-  margin-right: 40px;
-  box-shadow: 0 2px 12px rgba(45, 42, 38, 0.08);
+  margin-right: 52px;
+  border-bottom-left-radius: var(--radius-sm);
 }
 
 .message-item.system .message-content {
@@ -893,8 +930,8 @@ const getMessageClass = (message) => {
   width: 8px;
   height: 8px;
   background: var(--primary);
-  border-radius: 50%;
-  animation: dotPulse 1.2s infinite cubic-bezier(0.25, 1, 0.5, 1) both;
+  border-radius: var(--radius-full);
+  animation: dotPulse 1.2s ease-in-out infinite;
 }
 
 .thinking-dots span:nth-child(1) {
@@ -1011,7 +1048,7 @@ const getMessageClass = (message) => {
   font-size: 5rem;
   margin-bottom: 20px;
   animation: float 3s cubic-bezier(0.25, 1, 0.5, 1) infinite;
-  filter: drop-shadow(0 8px 16px rgba(255, 107, 107, 0.3));
+  filter: drop-shadow(0 8px 24px rgba(255, 107, 107, 0.3));
 }
 
 @keyframes float {

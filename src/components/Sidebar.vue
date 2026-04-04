@@ -53,11 +53,37 @@ const emit = defineEmits([
   'open-model-config'
 ])
 
-const userCollapseOpen = ref(false)
-const ruleCollapseOpen = ref(false)
-const adminCollapseOpen = ref(true)
-const modelConfigCollapseOpen = ref(false)
-const historyCollapseOpen = ref(false)
+// 折叠状态持久化到 localStorage
+const loadCollapseState = (key, defaultVal) => {
+  try {
+    const saved = localStorage.getItem(`sidebar_collapse_${key}`)
+    return saved !== null ? JSON.parse(saved) : defaultVal
+  } catch { return defaultVal }
+}
+const saveCollapseState = (key, val) => {
+  try { localStorage.setItem(`sidebar_collapse_${key}`, JSON.stringify(val)) } catch {}
+}
+
+const userCollapseOpen = ref(loadCollapseState('user', false))
+const ruleCollapseOpen = ref(loadCollapseState('rule', false))
+const adminCollapseOpen = ref(loadCollapseState('admin', true))
+const modelConfigCollapseOpen = ref(loadCollapseState('model', false))
+const historyCollapseOpen = ref(loadCollapseState('history', false))
+
+// 使用对象存储 refs，避免在模板中直接传递 ref（模板中 ref 会自动解包）
+const collapseStates = {
+  user: userCollapseOpen,
+  rule: ruleCollapseOpen,
+  admin: adminCollapseOpen,
+  model: modelConfigCollapseOpen,
+  history: historyCollapseOpen,
+}
+
+// 状态变化时自动保存
+const toggleState = (key) => {
+  collapseStates[key].value = !collapseStates[key].value
+  saveCollapseState(key, collapseStates[key].value)
+}
 
 const getModelTagClass = (modelType) => {
   const classMap = {
@@ -104,7 +130,10 @@ const getAvatarUrl = (userId) => {
 <template>
   <div class="sidebar" :class="props.class">
     <div class="sidebar-header">
-      <div class="sidebar-title">🤖 脑洞聊天室</div>
+      <div class="sidebar-logo">
+        <div class="logo-icon">🤖</div>
+        <span class="logo-text">AIChat</span>
+      </div>
       <button class="theme-toggle" @click="$emit('toggle-theme')" :title="isDarkMode ? '切换到浅色模式' : '切换到深色模式'">
         <span>{{ isDarkMode ? '☀️' : '🌙' }}</span>
       </button>
@@ -166,8 +195,8 @@ const getAvatarUrl = (userId) => {
       <!-- 规则维护区域 - 折叠面板 -->
       <div class="sidebar-collapse">
         <div class="sidebar-collapse__header">
-          <span class="sidebar-module__title" @click="ruleCollapseOpen = !ruleCollapseOpen" style="flex: 1; cursor: pointer;">📋 规则维护</span>
-          <i :class="['sidebar-collapse__arrow', { expanded: ruleCollapseOpen }]" @click="ruleCollapseOpen = !ruleCollapseOpen" style="cursor: pointer;"></i>
+          <span class="sidebar-module__title" @click="toggleState('rule')" style="flex: 1; cursor: pointer;">📋 规则维护</span>
+          <i :class="['sidebar-collapse__arrow', { expanded: ruleCollapseOpen }]" @click="toggleState('rule')" style="cursor: pointer;"></i>
           <ElButton type="text" size="small" @click="$emit('add-rule')" class="sidebar-btn" style="margin-left: 0;">添加</ElButton>
         </div>
         <div :class="['sidebar-collapse__content', { expanded: ruleCollapseOpen }]">
@@ -191,8 +220,8 @@ const getAvatarUrl = (userId) => {
       <!-- 角色配置区域 - 折叠面板 -->
       <div class="sidebar-collapse">
         <div class="sidebar-collapse__header">
-          <span class="sidebar-module__title" @click="userCollapseOpen = !userCollapseOpen" style="flex: 1; cursor: pointer;">👥 角色配置</span>
-          <i :class="['sidebar-collapse__arrow', { expanded: userCollapseOpen }]" @click="userCollapseOpen = !userCollapseOpen" style="cursor: pointer;"></i>
+          <span class="sidebar-module__title" @click="toggleState('user')" style="flex: 1; cursor: pointer;">👥 角色配置</span>
+          <i :class="['sidebar-collapse__arrow', { expanded: userCollapseOpen }]" @click="toggleState('user')" style="cursor: pointer;"></i>
           <ElButton type="text" size="small" @click="$emit('add-user')" class="sidebar-btn" style="margin-left: 0;" data-step="add-user-btn" data-position="top">添加</ElButton>
         </div>
         <div :class="['sidebar-collapse__content', { expanded: userCollapseOpen }]">
@@ -219,40 +248,44 @@ const getAvatarUrl = (userId) => {
       <!-- 管理员账户管理区域 -->
       <div v-if="isLoggedIn && currentUser?.role === 'ADMIN'" class="sidebar-collapse">
         <div class="sidebar-collapse__header">
-          <span class="sidebar-module__title" @click="adminCollapseOpen = !adminCollapseOpen" style="flex: 1; cursor: pointer;">🔐 账户管理</span>
-          <i :class="['sidebar-collapse__arrow', { expanded: adminCollapseOpen }]" @click="adminCollapseOpen = !adminCollapseOpen" style="cursor: pointer;"></i>
+          <span class="sidebar-module__title" @click="toggleState('admin')" style="flex: 1; cursor: pointer;">🔐 账户管理</span>
+          <i :class="['sidebar-collapse__arrow', { expanded: adminCollapseOpen }]" @click="toggleState('admin')" style="cursor: pointer;"></i>
         </div>
         <div :class="['sidebar-collapse__content', { expanded: adminCollapseOpen }]">
-          <ElButton type="text" size="small" @click="$emit('open-account-manager')" class="sidebar-admin-btn">
-            <i class="el-icon-user"></i> 用户列表
-          </ElButton>
-          <ElButton type="text" size="small" @click="$emit('open-operation-logs')" class="sidebar-admin-btn">
-            <i class="el-icon-document"></i> 操作日志
-          </ElButton>
-          <ElButton type="text" size="small" @click="$emit('open-stats')" class="sidebar-admin-btn">
-            <i class="el-icon-data-line"></i> 统计信息
-          </ElButton>
+          <div>
+            <ElButton type="text" size="small" @click="$emit('open-account-manager')" class="sidebar-admin-btn">
+              <i class="el-icon-user"></i> 用户列表
+            </ElButton>
+            <ElButton type="text" size="small" @click="$emit('open-operation-logs')" class="sidebar-admin-btn">
+              <i class="el-icon-document"></i> 操作日志
+            </ElButton>
+            <ElButton type="text" size="small" @click="$emit('open-stats')" class="sidebar-admin-btn">
+              <i class="el-icon-data-line"></i> 统计信息
+            </ElButton>
+          </div>
         </div>
       </div>
 
       <!-- 模型配置区域 -->
       <div class="sidebar-collapse">
         <div class="sidebar-collapse__header">
-          <span class="sidebar-module__title" @click="modelConfigCollapseOpen = !modelConfigCollapseOpen" style="flex: 1; cursor: pointer;">⚙️ 模型配置</span>
-          <i :class="['sidebar-collapse__arrow', { expanded: modelConfigCollapseOpen }]" @click="modelConfigCollapseOpen = !modelConfigCollapseOpen" style="cursor: pointer;"></i>
+          <span class="sidebar-module__title" @click="toggleState('model')" style="flex: 1; cursor: pointer;">⚙️ 模型配置</span>
+          <i :class="['sidebar-collapse__arrow', { expanded: modelConfigCollapseOpen }]" @click="toggleState('model')" style="cursor: pointer;"></i>
         </div>
         <div :class="['sidebar-collapse__content', { expanded: modelConfigCollapseOpen }]">
-          <ElButton type="text" size="small" @click="$emit('open-model-config')" class="sidebar-admin-btn" data-step="model-config" data-position="top">
-            <i class="el-icon-setting"></i> 全局设置
-          </ElButton>
+          <div>
+            <ElButton type="text" size="small" @click="$emit('open-model-config')" class="sidebar-admin-btn" data-step="model-config" data-position="top">
+              <i class="el-icon-setting"></i> 全局设置
+            </ElButton>
+          </div>
         </div>
       </div>
 
       <!-- 历史会话区域 -->
       <div class="sidebar-collapse">
         <div class="sidebar-collapse__header">
-          <span class="sidebar-module__title" @click="historyCollapseOpen = !historyCollapseOpen" style="flex: 1; cursor: pointer;">📜 历史会话</span>
-          <i :class="['sidebar-collapse__arrow', { expanded: historyCollapseOpen }]" @click="historyCollapseOpen = !historyCollapseOpen" style="cursor: pointer;"></i>
+          <span class="sidebar-module__title" @click="toggleState('history')" style="flex: 1; cursor: pointer;">📜 历史会话</span>
+          <i :class="['sidebar-collapse__arrow', { expanded: historyCollapseOpen }]" @click="toggleState('history')" style="cursor: pointer;"></i>
         </div>
         <div :class="['sidebar-collapse__content', { expanded: historyCollapseOpen }]">
           <div v-if="historyGroups.length === 0" class="sidebar-empty">
@@ -287,38 +320,74 @@ const getAvatarUrl = (userId) => {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sidebar-header {
-  padding: 16px;
+  padding: var(--space-lg);
   border-bottom: 1px solid var(--border-light);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-sm);
+  position: relative;
 }
 
-.sidebar-title {
-  font-size: var(--text-heading);
-  font-weight: var(--font-bold);
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.logo-icon {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--success) 100%);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  box-shadow: var(--shadow-md);
+  animation: logoFloat 3s ease-in-out infinite;
+}
+
+@keyframes logoFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-3px) rotate(2deg); }
+}
+
+.logo-text {
+  font-size: 1.25rem;
+  font-weight: 700;
   color: var(--text-title);
+  letter-spacing: -0.02em;
 }
 
 .theme-toggle {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  background: transparent;
+  top: var(--space-lg);
+  right: var(--space-lg);
+  background: var(--bg-card);
   border: none;
   cursor: pointer;
-  font-size: var(--text-heading);
-  padding: 4px;
+  font-size: 18px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius-sm);
-  transition: background var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-spring);
   color: var(--text-title);
+  box-shadow: var(--shadow-sm);
 }
 
 .theme-toggle:hover {
-  background: var(--bg-hover);
+  transform: scale(1.1);
+  box-shadow: var(--shadow-md);
 }
 
 .sidebar-auth-btn {
@@ -366,15 +435,17 @@ const getAvatarUrl = (userId) => {
   margin-bottom: 4px;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background var(--transition);
+  transition: background var(--transition), transform var(--transition-spring);
 }
 
 .session-item:hover {
   background: var(--bg-hover);
+  transform: translateX(4px);
 }
 
 .session-item.active {
   background: var(--bg-active);
+  color: var(--primary);
 }
 
 .session-item-content {
@@ -422,6 +493,12 @@ const getAvatarUrl = (userId) => {
   align-items: center;
   padding: 12px 16px;
   cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.sidebar-collapse__header:hover {
+  background: var(--bg-hover);
+  transform: translateY(-1px);
 }
 
 .sidebar-module__title {
@@ -432,27 +509,63 @@ const getAvatarUrl = (userId) => {
 .sidebar-collapse__arrow {
   margin-left: auto;
   margin-right: 8px;
-  width: 0;
-  height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 5px solid var(--text-secondary);
-  transition: transform var(--transition);
+  font-size: 12px;
+  transition: transform 0.4s var(--transition-spring);
+  color: var(--text-secondary);
 }
 
 .sidebar-collapse__arrow.expanded {
-  transform: rotate(180deg);
+  transform: rotate(90deg);
 }
 
 .sidebar-collapse__content {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.4s var(--transition-spring);
+  transition: max-height 0.35s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .sidebar-collapse__content.expanded {
-  max-height: calc(100vh - 200px);
+  max-height: 40vh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sidebar-collapse__content > div,
+.sidebar-collapse__content > .sidebar-admin-btn,
+.sidebar-collapse__content > .sidebar-empty {
+  overflow: hidden;
+  padding: 0 16px;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition:
+    padding 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 0.25s ease,
+    transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.sidebar-collapse__content > .sidebar-user-list,
+.sidebar-collapse__content > .sidebar-history-list {
+  padding: 0;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition:
+    padding 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 0.25s ease,
+    transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.sidebar-collapse__content.expanded > div,
+.sidebar-collapse__content.expanded > .sidebar-admin-btn,
+.sidebar-collapse__content.expanded > .sidebar-empty {
+  padding: 12px 16px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.sidebar-collapse__content.expanded > .sidebar-user-list,
+.sidebar-collapse__content.expanded > .sidebar-history-list {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .sidebar-empty {
@@ -471,6 +584,7 @@ const getAvatarUrl = (userId) => {
   padding: 8px;
   border-radius: var(--radius-sm);
   margin-bottom: 4px;
+  transition: background 0.2s ease;
 }
 
 .sidebar-user-item:hover {

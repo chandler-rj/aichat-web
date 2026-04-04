@@ -42,12 +42,14 @@
   --space-md: 12px;
   --space-lg: 16px;
   --space-xl: 24px;
+  --space-2xl: 32px;
 
   /* 圆角 - 更大更圆润，体现playful */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 24px;
+  --radius-full: 9999px;
 
   /* 侧边栏宽度 */
   --sidebar-width: 280px;
@@ -55,6 +57,12 @@
   /* 过渡动画 - 明确指定属性，避免 transition: all 性能问题 */
   --transition: background-color 0.25s, color 0.25s, border-color 0.25s, box-shadow 0.25s, opacity 0.25s;
   --transition-spring: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* 阴影系统 */
+  --shadow-sm: 0 2px 8px rgba(45, 42, 38, 0.06);
+  --shadow-md: 0 4px 16px rgba(45, 42, 38, 0.1);
+  --shadow-lg: 0 8px 32px rgba(45, 42, 38, 0.15);
+  --shadow-glow: 0 0 20px rgba(255, 107, 107, 0.3);
 
   /* ========== 排版系统 ========== */
   /* 基于 1.25 (Major Third) 比例，以 16px 正文字号为基础 */
@@ -115,6 +123,12 @@ html[data-theme="dark"] {
   --qwen-bg: #2D2D50;
   --qwen-text: #A0A0FF;
 
+  /* 阴影系统 */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 20px rgba(255, 133, 133, 0.3);
+
   /* 排版系统 */
   --text-caption: 0.75rem;
   --text-secondary: 0.875rem;
@@ -171,6 +185,12 @@ html[data-theme="light"] {
   --qwen-bg: #E6E6FF;
   --qwen-text: #5050A0;
 
+  /* 阴影系统 */
+  --shadow-sm: 0 2px 8px rgba(45, 42, 38, 0.06);
+  --shadow-md: 0 4px 16px rgba(45, 42, 38, 0.1);
+  --shadow-lg: 0 8px 32px rgba(45, 42, 38, 0.15);
+  --shadow-glow: 0 0 20px rgba(255, 107, 107, 0.3);
+
   /* 排版系统 */
   --text-caption: 0.75rem;
   --text-secondary: 0.875rem;
@@ -226,6 +246,12 @@ html[data-theme="light"] {
     /* 模型标签颜色 */
     --qwen-bg: #2D2D50;
     --qwen-text: #A0A0FF;
+
+    /* 阴影系统 */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+    --shadow-glow: 0 0 20px rgba(255, 133, 133, 0.3);
 
     /* 排版系统 */
     --text-caption: 0.75rem;

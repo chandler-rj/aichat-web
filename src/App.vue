@@ -434,6 +434,7 @@ const removeUser = (index) => {
 
 // Rule methods
 const handleAddRule = () => {
+  editingRule.value = { id: null, name: '', content: '' }
   showRuleDialog.value = true
 }
 
@@ -475,6 +476,22 @@ const updateSession = async (newVal, index) => {
     await loadSessionList()
   } catch (e) {
     console.error('更新会话失败:', e)
+  }
+}
+
+const onModeChange = (mode) => {
+  chatMode.value = mode
+}
+
+const updateSessionField = async (field, value) => {
+  if (!currentSession.value) return
+  if (field === 'maxHistoryMessages' || field === 'replyInterval') {
+    currentSession.value[field] = value
+    try {
+      await sessions.updateSession(currentSession.value.id, currentSession.value)
+    } catch (e) {
+      console.error('更新会话失败:', e)
+    }
   }
 }
 
@@ -825,10 +842,12 @@ const openDebugDialog = (modelType, config) => {
 <template>
   <div id="app">
     <!-- 汉堡菜单按钮 (移动端显示) -->
-    <button class="hamburger-btn" @click="sidebarOpen = !sidebarOpen">☰</button>
+    <button class="hamburger-btn" @click="sidebarOpen = !sidebarOpen">
+      {{ sidebarOpen ? '✕' : '☰' }}
+    </button>
 
     <!-- 侧边栏遮罩层 -->
-    <div class="sidebar-overlay" :class="{ open: sidebarOpen }" @click="sidebarOpen = false"></div>
+    <div class="sidebar-overlay" :class="{ visible: sidebarOpen }" @click="sidebarOpen = false"></div>
 
     <div class="app-container">
       <!-- 侧边栏 -->
@@ -903,6 +922,8 @@ const openDebugDialog = (modelType, config) => {
         @export-md="exportMd"
         @export-html="exportHtml"
         @update-session="updateSession"
+        @mode-change="onModeChange"
+        @update-field="updateSessionField"
         @rule-select="onRuleSelect"
         @add-user="addUser"
         @remove-user="removeUser"
@@ -938,6 +959,7 @@ const openDebugDialog = (modelType, config) => {
 
     <!-- 角色配置对话框 -->
     <UserDialog
+      :key="editingUser?.id || 'new'"
       :visible="showUserDialog"
       :user="editingUser"
       :supportedModels="supportedModels"
@@ -1031,43 +1053,54 @@ html, body {
 .hamburger-btn {
   display: none;
   position: fixed;
-  top: calc(10px + env(safe-area-inset-top));
-  left: calc(10px + env(safe-area-inset-left));
+  top: calc(12px + env(safe-area-inset-top));
+  left: 12px;
   z-index: 1001;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
+  width: 44px;
+  height: 44px;
   border: none;
+  border-radius: var(--radius-md);
   background: var(--bg-card);
-  font-size: var(--text-heading);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-  color: var(--text-title);
+  font-size: 20px;
   cursor: pointer;
+  box-shadow: var(--shadow-md);
+  color: var(--text-title);
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-spring);
 }
 
 .hamburger-btn:hover {
   background: var(--bg-hover);
 }
 
+.hamburger-btn:active {
+  transform: scale(0.9);
+}
+
 /* Sidebar Overlay */
 .sidebar-overlay {
   display: none;
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.6);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
   z-index: 999;
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.sidebar-overlay.visible {
+  opacity: 1;
 }
 
 /* Responsive */
 @media screen and (max-width: 768px) {
   .hamburger-btn {
-    display: block;
+    display: flex;
   }
 
-  .sidebar-overlay.open {
+  .sidebar-overlay {
     display: block;
   }
 
@@ -1075,13 +1108,18 @@ html, body {
     position: fixed;
     top: 0;
     left: 0;
-    height: 100vh;
+    height: 100dvh;
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
     padding-left: env(safe-area-inset-left);
     z-index: 1000;
     transform: translateX(-100%);
-    transition: transform var(--transition-spring);
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    box-shadow: var(--shadow-lg);
   }
 
   .app-container .sidebar.open {
@@ -1089,7 +1127,7 @@ html, body {
   }
 
   .content-header {
-    padding-left: 50px !important;
+    padding-left: 60px !important;
   }
 
   /* Dialog responsive styles */
