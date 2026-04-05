@@ -31,7 +31,8 @@ export async function request(method, url, data = null, isFormData = false) {
   const response = await fetch(API_BASE_URL + url, config)
 
   // 如果返回 401（未授权/Token 过期），清除登录状态
-  if (response.status === 401) {
+  // 但登录接口（/auth/login）返回 401 是可能的错误，不要 reload
+  if (response.status === 401 && !url.includes('/auth/login')) {
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
     // 刷新页面会触发重新初始化，自动跳转到登录
@@ -154,7 +155,8 @@ export async function authorizedFetch(url, config) {
   })
 
   // 如果返回 401（未授权/Token 过期），清除登录状态并刷新
-  if (response.status === 401) {
+  // 登录接口返回 401 不需要 reload
+  if (response.status === 401 && !url.includes('/auth/login')) {
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
     window.location.reload()

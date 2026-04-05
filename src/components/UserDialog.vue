@@ -25,26 +25,44 @@ const pendingAvatarFile = ref(null)
 const searchingAvatar = ref(false)
 const isEditing = ref(false)
 
-watch(() => props.visible, async (val) => {
-  if (val) {
-    if (props.user) {
-      isEditing.value = true
-      userForm.value = { ...props.user }
-      await loadAvatar(props.user.id)
-    } else {
-      isEditing.value = false
-      userForm.value = {
-        id: null,
-        name: '',
-        modelType: 'OPENAI',
-        rolePrompt: '',
-        isHuman: false
-      }
-      avatarUrl.value = ''
-      pendingAvatarFile.value = null
-    }
+const loadAvatar = async (userId) => {
+  // 先清除旧的 blob URL 避免内存泄漏
+  if (avatarUrl.value && avatarUrl.value.startsWith('blob:')) {
+    URL.revokeObjectURL(avatarUrl.value)
   }
-})
+  avatarUrl.value = ''
+  try {
+    // 头像接口是公开的，不需要 Authorization header
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/avatar?t=${Date.now()}`)
+    if (response.ok) {
+      const blob = await response.blob()
+      avatarUrl.value = URL.createObjectURL(blob)
+    }
+  } catch (e) {
+    console.error('加载头像失败:', e)
+  }
+}
+
+watch(() => props.user, async (newUser) => {
+  if (!props.visible) return
+  if (newUser) {
+    isEditing.value = true
+    userForm.value = { ...newUser }
+    pendingAvatarFile.value = null
+    await loadAvatar(newUser.id)
+  } else {
+    isEditing.value = false
+    userForm.value = {
+      id: null,
+      name: '',
+      modelType: 'OPENAI',
+      rolePrompt: '',
+      isHuman: false
+    }
+    avatarUrl.value = ''
+    pendingAvatarFile.value = null
+  }
+}, { immediate: true })
 
 // 全局 paste 事件监听
 onMounted(() => {
@@ -55,26 +73,10 @@ onUnmounted(() => {
   document.removeEventListener('paste', handlePasteAvatar)
 })
 
-const loadAvatar = async (userId) => {
-  try {
-    const accessToken = localStorage.getItem('accessToken')
-    const response = await fetch(`${API_BASE_URL}/users/${userId}/avatar?t=${Date.now()}`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
-      }
-    })
-    if (response.ok) {
-      const blob = await response.blob()
-      avatarUrl.value = URL.createObjectURL(blob)
-    } else {
-      avatarUrl.value = ''
-    }
-  } catch (e) {
-    avatarUrl.value = ''
-  }
-}
-
 const handleClose = () => {
+  if (avatarUrl.value && avatarUrl.value.startsWith('blob:')) {
+    URL.revokeObjectURL(avatarUrl.value)
+  }
   emit('update:visible', false)
 }
 
@@ -104,10 +106,12 @@ const handleAvatarChange = (options) => {
 }
 
 const uploadAvatarDirectly = async (file) => {
+  // 捕获当前 userId，避免切换用户后异步回调用到错误的 ID
+  const targetUserId = userForm.value.id
   try {
-    await users.uploadAvatar(userForm.value.id, file)
+    await users.uploadAvatar(targetUserId, file)
     ElMessage.success('头像上传成功')
-    await loadAvatar(userForm.value.id)
+    await loadAvatar(targetUserId)
   } catch (e) {
     ElMessage.error('头像上传失败')
   }
@@ -140,7 +144,6 @@ async function handlePasteAvatar(event) {
       return
     }
   }
-
   // No image found in clipboard
   ElMessage.warning('剪贴板中没有图片')
 }
@@ -151,6 +154,9 @@ const searchGoogleAvatar = async () => {
     ElMessage.warning('请先输入用户名')
     return
   }
+
+  // 捕获当前用户 ID，用于检测是否在搜索期间切换了用户
+  const targetUserId = userForm.value.id
 
   searchingAvatar.value = true
   try {
@@ -173,6 +179,8 @@ const searchGoogleAvatar = async () => {
 
     // 如果已经是 data URL（MiniMax 直接返回的 base64），直接使用
     if (searchData.url.startsWith('data:')) {
+      // 检查用户是否已切换，丢弃过期响应
+      if (userForm.value.id !== targetUserId) return
       avatarUrl.value = searchData.url
       const response = await fetch(searchData.url)
       const blob = await response.blob()
@@ -199,6 +207,8 @@ const searchGoogleAvatar = async () => {
     }
 
     if (fetchData.data) {
+      // 检查用户是否已切换，丢弃过期响应
+      if (userForm.value.id !== targetUserId) return
       avatarUrl.value = fetchData.data
       const response = await fetch(fetchData.data)
       const blob = await response.blob()
@@ -226,6 +236,10 @@ const handleSave = async () => {
     return
   }
 
+  // 捕获当前待上传头像，避免后续竞态
+  const fileToUpload = pendingAvatarFile.value
+  pendingAvatarFile.value = null  // 立即清除，防止串用到其他用户
+
   try {
     let createdUser
     if (isEditing.value) {
@@ -238,8 +252,8 @@ const handleSave = async () => {
     }
 
     // Upload avatar if pending
-    if (pendingAvatarFile.value) {
-      await users.uploadAvatar(createdUser.id, pendingAvatarFile.value)
+    if (fileToUpload) {
+      await users.uploadAvatar(createdUser.id, fileToUpload)
       ElMessage.success('头像上传成功')
     }
 
@@ -292,9 +306,10 @@ const handleSave = async () => {
           <ElOption
             v-for="(label, type) in supportedModels"
             :key="type"
-            :label="label"
             :value="type"
-          />
+          >
+            {{ label }}
+          </ElOption>
         </ElSelect>
       </ElFormItem>
       <ElFormItem label="角色提示">

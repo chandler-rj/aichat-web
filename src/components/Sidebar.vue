@@ -47,6 +47,7 @@ const emit = defineEmits([
   'view-history-snapshot',
   'delete-history-snapshot',
   'switch-to-current',
+  'view-history',
   'open-account-manager',
   'open-operation-logs',
   'open-stats',
@@ -64,6 +65,7 @@ const saveCollapseState = (key, val) => {
   try { localStorage.setItem(`sidebar_collapse_${key}`, JSON.stringify(val)) } catch {}
 }
 
+const sessionCollapseOpen = ref(loadCollapseState('session', true))
 const userCollapseOpen = ref(loadCollapseState('user', false))
 const ruleCollapseOpen = ref(loadCollapseState('rule', false))
 const adminCollapseOpen = ref(loadCollapseState('admin', true))
@@ -72,6 +74,7 @@ const historyCollapseOpen = ref(loadCollapseState('history', false))
 
 // 使用对象存储 refs，避免在模板中直接传递 ref（模板中 ref 会自动解包）
 const collapseStates = {
+  session: sessionCollapseOpen,
   user: userCollapseOpen,
   rule: ruleCollapseOpen,
   admin: adminCollapseOpen,
@@ -129,185 +132,183 @@ const getAvatarUrl = (userId) => {
 
 <template>
   <div class="sidebar" :class="props.class">
+    <!-- Sidebar Header -->
     <div class="sidebar-header">
-      <div class="sidebar-logo">
+      <div class="logo">
         <div class="logo-icon">🤖</div>
         <span class="logo-text">AIChat</span>
       </div>
-      <button class="theme-toggle" @click="$emit('toggle-theme')" :title="isDarkMode ? '切换到浅色模式' : '切换到深色模式'">
+      <button class="theme-toggle" @click="$emit('toggle-theme')" :aria-label="isDarkMode ? '切换到浅色模式' : '切换到深色模式'">
         <span>{{ isDarkMode ? '☀️' : '🌙' }}</span>
       </button>
-
-      <!-- 未登录时显示登录/注册按钮 -->
-      <template v-if="!isLoggedIn">
-        <ElButton type="primary" @click="$emit('open-login')" class="sidebar-auth-btn">
-          <i class="el-icon-user"></i> 登录
-        </ElButton>
-        <ElButton @click="$emit('open-register')" class="sidebar-auth-btn" style="margin-left: 0">
-          <i class="el-icon-edit"></i> 注册
-        </ElButton>
-      </template>
-
-      <!-- 已登录时显示用户信息和登出按钮 -->
-      <template v-else>
-        <div class="user-info-bar">
-          <span class="user-name">{{ currentUser?.username }}</span>
-          <ElTag size="small" :type="currentUser?.role === 'ADMIN' ? 'danger' : 'success'">
-            {{ currentUser?.role === 'ADMIN' ? '管理员' : '用户' }}
-          </ElTag>
-        </div>
-
-        <!-- 邮箱验证提示 -->
-        <div v-if="currentUser && !currentUser.emailVerified" class="email-verify-notice">
-          <i class="el-icon-warning"></i>
-          <span>邮箱未验证</span>
-          <ElButton type="text" size="small" @click="$emit('resend-verification')">重新发送验证邮件</ElButton>
-        </div>
-
-        <ElButton @click="$emit('logout')" class="sidebar-logout-btn">
-          <i class="el-icon-switch-button"></i> 退出登录
-        </ElButton>
-      </template>
     </div>
 
-    <!-- 登录后显示新建会话按钮 -->
-    <template v-if="isLoggedIn">
-      <ElButton type="primary" @click="$emit('create-session')" style="width: calc(100% - 32px); margin: 16px;" data-step="add-user" data-position="top">
-        <i class="el-icon-plus"></i> 新建会话
-      </ElButton>
+    <!-- Navigation -->
+    <nav class="sidebar-nav" v-if="isLoggedIn">
+      <!-- 会话 Section -->
+      <div class="nav-section">
+        <div class="nav-section-title">会话</div>
 
-      <div class="session-list">
+        <!-- 当前会话 - 可展开显示会话列表 -->
+        <div class="nav-item nav-item--expandable" :class="{ active: currentViewMode === 'current' }" @click="toggleState('session')">
+          <span class="nav-item-icon">💬</span>
+          <span class="nav-item-text">当前会话</span>
+          <span v-if="sessionList.length > 0" class="nav-item-badge">{{ sessionList.length }}</span>
+          <span class="nav-item-arrow" :class="{ expanded: sessionCollapseOpen }">▶</span>
+        </div>
+        <!-- 当前会话展开内容 -->
+        <div class="nav-expand" :class="{ expanded: sessionCollapseOpen }">
+          <div class="session-list">
+            <ElButton type="primary" size="small" @click="$emit('create-session')" class="create-session-btn">
+              <i class="el-icon-plus"></i> 新建会话
+            </ElButton>
+            <div
+              v-for="session in sessionList"
+              :key="session.id"
+              class="session-item"
+              :class="{ active: currentSession?.id === session.id }"
+              @click="$emit('select-session', session)"
+            >
+              <div class="session-item-content">
+                <div class="session-item-name">{{ session.name }}</div>
+                <div class="session-item-time">{{ formatTime(session.updateTime) }}</div>
+              </div>
+              <i class="session-delete-btn el-icon-delete" @click.stop="$emit('delete-session', session.id)"></i>
+            </div>
+            <div v-if="sessionList.length === 0" class="sidebar-empty">暂无会话</div>
+          </div>
+        </div>
+
         <div
-          v-for="session in sessionList"
-          :key="session.id"
-          class="session-item"
-          :class="{ active: currentSession?.id === session.id }"
-          @click="$emit('select-session', session)"
+          class="nav-item"
+          :class="{ active: currentViewMode === 'history' }"
+          @click="toggleState('history')"
         >
-          <div class="session-item-content">
-            <div class="session-item-name">{{ session.name }}</div>
-            <div class="session-item-time">{{ formatTime(session.updateTime) }}</div>
-          </div>
-          <span class="session-delete-btn" @click.stop="$emit('delete-session', session.id)">🗑️</span>
+          <span class="nav-item-icon">📜</span>
+          <span class="nav-item-text">历史会话</span>
+          <span v-if="historyGroups.length > 0" class="nav-item-badge">{{ historyGroups.length }}</span>
+          <span class="nav-item-arrow" :class="{ expanded: historyCollapseOpen }">▶</span>
         </div>
-      </div>
-
-      <!-- 规则维护区域 - 折叠面板 -->
-      <div class="sidebar-collapse">
-        <div class="sidebar-collapse__header">
-          <span class="sidebar-module__title" @click="toggleState('rule')" style="flex: 1; cursor: pointer;">📋 规则维护</span>
-          <i :class="['sidebar-collapse__arrow', { expanded: ruleCollapseOpen }]" @click="toggleState('rule')" style="cursor: pointer;"></i>
-          <ElButton type="text" size="small" @click="$emit('add-rule')" class="sidebar-btn" style="margin-left: 0;">添加</ElButton>
-        </div>
-        <div :class="['sidebar-collapse__content', { expanded: ruleCollapseOpen }]">
-          <div v-if="ruleList.length === 0" class="sidebar-empty">
-            暂无规则，请添加
-          </div>
-          <div v-else class="sidebar-user-list">
-            <div v-for="rule in ruleList" :key="rule.id" class="sidebar-user-item">
-              <div class="sidebar-user-info">
-                <span>{{ rule.name }}</span>
-              </div>
-              <div class="sidebar-user-actions">
-                <ElButton type="text" size="small" @click="$emit('edit-rule', rule)" class="sidebar-btn sidebar-btn--edit">编辑</ElButton>
-                <ElButton type="text" size="small" @click="$emit('delete-rule', rule.id)" class="sidebar-btn sidebar-btn--delete">删除</ElButton>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 角色配置区域 - 折叠面板 -->
-      <div class="sidebar-collapse">
-        <div class="sidebar-collapse__header">
-          <span class="sidebar-module__title" @click="toggleState('user')" style="flex: 1; cursor: pointer;">👥 角色配置</span>
-          <i :class="['sidebar-collapse__arrow', { expanded: userCollapseOpen }]" @click="toggleState('user')" style="cursor: pointer;"></i>
-          <ElButton type="text" size="small" @click="$emit('add-user')" class="sidebar-btn" style="margin-left: 0;" data-step="add-user-btn" data-position="top">添加</ElButton>
-        </div>
-        <div :class="['sidebar-collapse__content', { expanded: userCollapseOpen }]">
-          <div v-if="userList.length === 0" class="sidebar-empty">
-            暂无用户，请添加
-          </div>
-          <div v-else class="sidebar-user-list">
-            <div v-for="user in userList" :key="user.id" class="sidebar-user-item">
-              <img :src="getAvatarUrl(user.id) + '?t=' + (avatarUpdateTime[user.id] || '')" class="sidebar-user-avatar" @error="handleAvatarError" />
-              <div class="sidebar-user-info">
-                <span>{{ user.name }}</span>
-                <ElTag size="small" :class="getModelTagClass(user.modelType)">{{ getModelDisplayName(user.modelType) }}</ElTag>
-                <span v-if="user.isHuman" class="sidebar-user-human">👤</span>
-              </div>
-              <div class="sidebar-user-actions">
-                <ElButton type="text" size="small" @click="$emit('edit-user', user)" class="sidebar-btn sidebar-btn--edit">编辑</ElButton>
-                <ElButton type="text" size="small" @click="$emit('delete-user', user.id)" class="sidebar-btn sidebar-btn--delete">删除</ElButton>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 管理员账户管理区域 -->
-      <div v-if="isLoggedIn && currentUser?.role === 'ADMIN'" class="sidebar-collapse">
-        <div class="sidebar-collapse__header">
-          <span class="sidebar-module__title" @click="toggleState('admin')" style="flex: 1; cursor: pointer;">🔐 账户管理</span>
-          <i :class="['sidebar-collapse__arrow', { expanded: adminCollapseOpen }]" @click="toggleState('admin')" style="cursor: pointer;"></i>
-        </div>
-        <div :class="['sidebar-collapse__content', { expanded: adminCollapseOpen }]">
-          <div>
-            <ElButton type="text" size="small" @click="$emit('open-account-manager')" class="sidebar-admin-btn">
-              <i class="el-icon-user"></i> 用户列表
-            </ElButton>
-            <ElButton type="text" size="small" @click="$emit('open-operation-logs')" class="sidebar-admin-btn">
-              <i class="el-icon-document"></i> 操作日志
-            </ElButton>
-            <ElButton type="text" size="small" @click="$emit('open-stats')" class="sidebar-admin-btn">
-              <i class="el-icon-data-line"></i> 统计信息
-            </ElButton>
-          </div>
-        </div>
-      </div>
-
-      <!-- 模型配置区域 -->
-      <div class="sidebar-collapse">
-        <div class="sidebar-collapse__header">
-          <span class="sidebar-module__title" @click="toggleState('model')" style="flex: 1; cursor: pointer;">⚙️ 模型配置</span>
-          <i :class="['sidebar-collapse__arrow', { expanded: modelConfigCollapseOpen }]" @click="toggleState('model')" style="cursor: pointer;"></i>
-        </div>
-        <div :class="['sidebar-collapse__content', { expanded: modelConfigCollapseOpen }]">
-          <div>
-            <ElButton type="text" size="small" @click="$emit('open-model-config')" class="sidebar-admin-btn" data-step="model-config" data-position="top">
-              <i class="el-icon-setting"></i> 全局设置
-            </ElButton>
-          </div>
-        </div>
-      </div>
-
-      <!-- 历史会话区域 -->
-      <div class="sidebar-collapse">
-        <div class="sidebar-collapse__header">
-          <span class="sidebar-module__title" @click="toggleState('history')" style="flex: 1; cursor: pointer;">📜 历史会话</span>
-          <i :class="['sidebar-collapse__arrow', { expanded: historyCollapseOpen }]" @click="toggleState('history')" style="cursor: pointer;"></i>
-        </div>
-        <div :class="['sidebar-collapse__content', { expanded: historyCollapseOpen }]">
-          <div v-if="historyGroups.length === 0" class="sidebar-empty">
-            暂无历史会话
-          </div>
-          <div v-else class="sidebar-history-list">
-            <div v-for="group in historyGroups" :key="group.sessionId" class="sidebar-history-group">
-              <div class="sidebar-history-group__title">
-                {{ group.sessionName || '已删除会话' }}
-              </div>
-              <div class="sidebar-history-snapshots">
-                <div v-for="snapshot in group.snapshots" :key="snapshot.id" class="sidebar-history-snapshot" @click="$emit('view-history-snapshot', snapshot)">
+        <!-- 历史会话展开内容 -->
+        <div class="nav-expand" :class="{ expanded: historyCollapseOpen }">
+          <div v-if="historyGroups.length === 0" class="sidebar-empty">暂无历史会话</div>
+          <div v-else class="history-list">
+            <div v-for="group in historyGroups" :key="group.sessionId" class="history-group">
+              <div class="history-group__title">{{ group.sessionName || '已删除会话' }}</div>
+              <div class="history-snapshots">
+                <div
+                  v-for="snapshot in group.snapshots"
+                  :key="snapshot.id"
+                  class="history-snapshot"
+                  :class="{ active: currentHistorySnapshot?.id === snapshot.id }"
+                  @click="$emit('view-history-snapshot', snapshot)"
+                >
                   <span class="snapshot-time">{{ formatTime(snapshot.snapshotTime) }}</span>
-                  <span v-if="currentHistorySnapshot?.id === snapshot.id" class="snapshot-active">✓</span>
-                  <span class="snapshot-delete" @click.stop="$emit('delete-history-snapshot', snapshot.id)" title="删除">🗑️</span>
+                  <i class="snapshot-delete el-icon-delete" @click.stop="$emit('delete-history-snapshot', snapshot.id)"></i>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </template>
+
+      <!-- 管理 Section -->
+      <div class="nav-section">
+        <div class="nav-section-title">管理</div>
+
+        <div class="nav-item nav-item--expandable" @click="toggleState('user')">
+          <span class="nav-item-icon">👥</span>
+          <span class="nav-item-text">角色配置</span>
+          <span class="nav-item-arrow" :class="{ expanded: userCollapseOpen }">▶</span>
+        </div>
+        <!-- 角色配置展开内容 -->
+        <div class="nav-expand" :class="{ expanded: userCollapseOpen }">
+          <div class="expand-content">
+            <ElButton type="primary" size="small" @click="$emit('add-user')" class="add-btn">
+              <i class="el-icon-plus"></i> 添加角色
+            </ElButton>
+            <div v-if="userList.length === 0" class="sidebar-empty">暂无用户，请添加</div>
+            <div v-else class="user-list">
+              <div v-for="user in userList" :key="user.id" class="user-item">
+                <img :src="getAvatarUrl(user.id) + '?t=' + (avatarUpdateTime[user.id] || '')" class="user-avatar" @error="handleAvatarError" />
+                <div class="user-info">
+                  <span class="user-name">{{ user.name }}</span>
+                  <ElTag size="small" :class="getModelTagClass(user.modelType)">{{ getModelDisplayName(user.modelType) }}</ElTag>
+                </div>
+                <div class="user-actions">
+                  <span class="icon-btn" @click="$emit('edit-user', user)" title="编辑">✏️</span>
+                  <span class="icon-btn icon-btn--danger" @click="$emit('delete-user', user.id)" title="删除">🗑️</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="nav-item nav-item--expandable" @click="toggleState('rule')">
+          <span class="nav-item-icon">📋</span>
+          <span class="nav-item-text">规则维护</span>
+          <span class="nav-item-arrow" :class="{ expanded: ruleCollapseOpen }">▶</span>
+        </div>
+        <!-- 规则维护展开内容 -->
+        <div class="nav-expand" :class="{ expanded: ruleCollapseOpen }">
+          <div class="expand-content">
+            <ElButton type="primary" size="small" @click="$emit('add-rule')" class="add-btn">
+              <i class="el-icon-plus"></i> 添加规则
+            </ElButton>
+            <div v-if="ruleList.length === 0" class="sidebar-empty">暂无规则，请添加</div>
+            <div v-else class="rule-list">
+              <div v-for="rule in ruleList" :key="rule.id" class="rule-item">
+                <span class="rule-name">{{ rule.name }}</span>
+                <div class="rule-actions">
+                  <span class="icon-btn" @click="$emit('edit-rule', rule)" title="编辑">✏️</span>
+                  <span class="icon-btn icon-btn--danger" @click="$emit('delete-rule', rule.id)" title="删除">🗑️</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="nav-item" @click="$emit('open-model-config')">
+          <span class="nav-item-icon">⚙️</span>
+          <span class="nav-item-text">模型设置</span>
+        </div>
+      </div>
+
+      <!-- 系统 Section (Admin only) -->
+      <div class="nav-section" v-if="currentUser?.role === 'ADMIN'">
+        <div class="nav-section-title">系统</div>
+        <div class="nav-item" @click="$emit('open-account-manager')">
+          <span class="nav-item-icon">🔐</span>
+          <span class="nav-item-text">账户管理</span>
+        </div>
+        <div class="nav-item" @click="$emit('open-stats')">
+          <span class="nav-item-icon">📊</span>
+          <span class="nav-item-text">统计数据</span>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Sidebar Footer - User Card -->
+    <div class="sidebar-footer">
+      <div v-if="!isLoggedIn" class="auth-buttons">
+        <ElButton type="primary" @click="$emit('open-login')" class="auth-btn">
+          <i class="el-icon-user"></i> 登录
+        </ElButton>
+        <ElButton @click="$emit('open-register')" class="auth-btn">
+          <i class="el-icon-edit"></i> 注册
+        </ElButton>
+      </div>
+      <div v-else class="user-card">
+        <div class="user-avatar">{{ currentUser?.username?.charAt(0) || 'U' }}</div>
+        <div class="user-info">
+          <div class="user-name">{{ currentUser?.username }}</div>
+          <div class="user-role">{{ currentUser?.role === 'ADMIN' ? '管理员' : '用户' }}</div>
+        </div>
+        <button class="user-settings-btn" @click="$emit('open-account-manager')" title="设置">
+          ⚙️
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -320,25 +321,20 @@ const getAvatarUrl = (userId) => {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
 }
 
+/* ========== Header ========== */
 .sidebar-header {
   padding: var(--space-lg);
   border-bottom: 1px solid var(--border-light);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
   position: relative;
 }
 
-.sidebar-logo {
+.logo {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  margin-bottom: var(--space-sm);
 }
 
 .logo-icon {
@@ -370,19 +366,18 @@ const getAvatarUrl = (userId) => {
   position: absolute;
   top: var(--space-lg);
   right: var(--space-lg);
-  background: var(--bg-card);
-  border: none;
-  cursor: pointer;
-  font-size: 18px;
   width: 36px;
   height: 36px;
+  border: none;
+  background: var(--bg-card);
   border-radius: var(--radius-sm);
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: var(--transition-spring);
-  color: var(--text-title);
+  font-size: 18px;
   box-shadow: var(--shadow-sm);
+  transition: var(--transition-spring);
 }
 
 .theme-toggle:hover {
@@ -390,62 +385,132 @@ const getAvatarUrl = (userId) => {
   box-shadow: var(--shadow-md);
 }
 
-.sidebar-auth-btn {
-  width: 100%;
-}
-
-.user-info-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.user-name {
-  font-weight: var(--font-medium);
-  color: var(--text-title);
-}
-
-.email-verify-notice {
-  font-size: var(--text-caption);
-  color: var(--warning-text);
-  background: var(--warning-light);
-  padding: 8px;
-  border-radius: var(--radius-sm);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-}
-
-.sidebar-logout-btn {
-  width: 100%;
-}
-
-.session-list {
+/* ========== Navigation ========== */
+.sidebar-nav {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  overflow-x: hidden;
+  padding: var(--space-md);
+}
+
+/* Hide scrollbar */
+.sidebar-nav::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.nav-section {
+  margin-bottom: var(--space-lg);
+}
+
+.nav-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-xs);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-spring);
+  color: var(--text-body);
+}
+
+.nav-item:hover {
+  background: var(--bg-hover);
+}
+
+.nav-item.active {
+  background: var(--bg-active);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.nav-item-icon {
+  font-size: 18px;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.nav-item-text {
+  flex: 1;
+}
+
+.nav-item-badge {
+  background: var(--primary);
+  color: var(--text-white);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  margin-left: auto;
+}
+
+.nav-item-arrow {
+  font-size: 10px;
+  color: var(--text-secondary);
+  transition: transform 0.3s ease;
+  margin-left: 4px;
+}
+
+.nav-item-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+/* ========== Expandable Content ========== */
+.nav-expand {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.nav-expand.expanded {
+  max-height: 50vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Hide scrollbar for expandable sections */
+.nav-expand::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.expand-content {
+  padding: 8px 8px 8px 32px;
+}
+
+.session-list,
+.history-list,
+.user-list,
+.rule-list {
+  padding: 0;
 }
 
 .session-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 10px 12px;
-  margin-bottom: 4px;
-  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background var(--transition), transform var(--transition-spring);
+  transition: background 0.2s ease;
 }
 
 .session-item:hover {
   background: var(--bg-hover);
-  transform: translateX(4px);
 }
 
 .session-item.active {
   background: var(--bg-active);
-  color: var(--primary);
 }
 
 .session-item-content {
@@ -454,11 +519,12 @@ const getAvatarUrl = (userId) => {
 }
 
 .session-item-name {
-  font-weight: var(--font-medium);
+  font-weight: 500;
   color: var(--text-body);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: var(--text-secondary);
 }
 
 .session-item-time {
@@ -468,235 +534,276 @@ const getAvatarUrl = (userId) => {
 
 .session-delete-btn {
   opacity: 0;
-  transition: opacity var(--transition);
+  font-size: 14px;
+  color: var(--text-secondary);
+  transition: opacity 0.2s, color 0.2s;
   cursor: pointer;
-  /* Ensure minimum 40x40px touch target for mobile */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  padding: 8px;
-  margin: -8px;
+  flex-shrink: 0;
 }
 
 .session-item:hover .session-delete-btn {
   opacity: 1;
 }
 
-.sidebar-collapse {
-  border-top: 1px solid var(--border-light);
-}
-
-.sidebar-collapse__header {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-
-.sidebar-collapse__header:hover {
-  background: var(--bg-hover);
-  transform: translateY(-1px);
-}
-
-.sidebar-module__title {
-  font-weight: var(--font-medium);
-  color: var(--text-body);
-}
-
-.sidebar-collapse__arrow {
-  margin-left: auto;
-  margin-right: 8px;
-  font-size: 12px;
-  transition: transform 0.4s var(--transition-spring);
-  color: var(--text-secondary);
-}
-
-.sidebar-collapse__arrow.expanded {
-  transform: rotate(90deg);
-}
-
-.sidebar-collapse__content {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.35s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-.sidebar-collapse__content.expanded {
-  max-height: 40vh;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.sidebar-collapse__content > div,
-.sidebar-collapse__content > .sidebar-admin-btn,
-.sidebar-collapse__content > .sidebar-empty {
-  overflow: hidden;
-  padding: 0 16px;
-  opacity: 0;
-  transform: translateY(-8px);
-  transition:
-    padding 0.35s cubic-bezier(0.25, 1, 0.5, 1),
-    opacity 0.25s ease,
-    transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-.sidebar-collapse__content > .sidebar-user-list,
-.sidebar-collapse__content > .sidebar-history-list {
-  padding: 0;
-  opacity: 0;
-  transform: translateY(-8px);
-  transition:
-    padding 0.35s cubic-bezier(0.25, 1, 0.5, 1),
-    opacity 0.25s ease,
-    transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-.sidebar-collapse__content.expanded > div,
-.sidebar-collapse__content.expanded > .sidebar-admin-btn,
-.sidebar-collapse__content.expanded > .sidebar-empty {
-  padding: 12px 16px;
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.sidebar-collapse__content.expanded > .sidebar-user-list,
-.sidebar-collapse__content.expanded > .sidebar-history-list {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.sidebar-empty {
-  padding: 12px 16px;
-  color: var(--text-secondary);
-  font-size: var(--text-secondary);
-}
-
-.sidebar-user-list {
-  padding: 0 8px 8px;
-}
-
-.sidebar-user-item {
-  display: flex;
-  align-items: center;
-  padding: 8px;
-  border-radius: var(--radius-sm);
-  margin-bottom: 4px;
-  transition: background 0.2s ease;
-}
-
-.sidebar-user-item:hover {
-  background: var(--bg-hover);
-}
-
-.sidebar-user-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  margin-right: 8px;
-  object-fit: cover;
-}
-
-.sidebar-user-info {
-  flex: 1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-.sidebar-user-human {
-  font-size: var(--text-caption);
-}
-
-.sidebar-user-actions {
-  display: flex;
-  gap: 4px;
-}
-
-.sidebar-btn {
-  padding: 2px 4px;
-  font-size: var(--text-caption);
-}
-
-.sidebar-btn--edit {
-  color: var(--primary);
-}
-
-.sidebar-btn--delete {
+.session-delete-btn:hover {
   color: var(--danger);
 }
 
-.sidebar-admin-btn {
-  width: calc(100% - 32px);
-  margin: 4px 16px;
-  text-align: left;
-}
-
-.sidebar-history-list {
-  padding: 0 8px 8px;
-}
-
-.sidebar-history-group {
+.create-session-btn {
+  width: 100%;
   margin-bottom: 8px;
 }
 
-.sidebar-history-group__title {
-  font-size: var(--text-secondary);
-  font-weight: var(--font-medium);
-  padding: 4px 8px;
-  color: var(--text-secondary);
+.history-group {
+  margin-bottom: 8px;
 }
 
-.sidebar-history-snapshot {
+.history-group__title {
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+  padding: 4px 12px;
+  font-weight: 500;
+}
+
+.history-snapshot {
   display: flex;
   align-items: center;
-  padding: 6px 8px;
+  padding: 6px 12px;
   cursor: pointer;
   border-radius: var(--radius-sm);
-  font-size: var(--text-caption);
+  transition: background 0.2s ease;
 }
 
-.sidebar-history-snapshot:hover {
+.history-snapshot:hover {
   background: var(--bg-hover);
+}
+
+.history-snapshot.active {
+  background: var(--bg-active);
 }
 
 .snapshot-time {
   flex: 1;
+  font-size: var(--text-caption);
   color: var(--text-secondary);
-}
-
-.snapshot-active {
-  color: var(--success);
-  margin-right: 4px;
 }
 
 .snapshot-delete {
   opacity: 0;
-  transition: opacity var(--transition);
-  /* Ensure minimum 40x40px touch target for mobile */
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 28px;
-  padding: 4px 8px;
-  margin: -4px -8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  transition: opacity 0.2s, color 0.2s;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
-.sidebar-history-snapshot:hover .snapshot-delete {
+.history-snapshot:hover .snapshot-delete {
   opacity: 1;
 }
 
-/* Model tag styles */
-:deep(.model-tag) {
+.snapshot-delete:hover {
+  color: var(--danger);
+}
+
+.add-btn {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.sidebar-empty {
+  padding: 12px;
+  color: var(--text-secondary);
   font-size: var(--text-caption);
+  text-align: center;
+}
+
+.user-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 4px;
+  gap: 8px;
+}
+
+.user-item:hover {
+  background: var(--bg-hover);
+}
+
+.user-item .user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.user-item .user-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.user-item .user-name {
+  font-size: var(--text-caption);
+  font-weight: 500;
+  color: var(--text-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.user-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  opacity: 0.6;
+}
+
+.icon-btn:hover {
+  background: var(--bg-active);
+  opacity: 1;
+}
+
+.icon-btn--danger:hover {
+  background: var(--danger);
+  color: white;
+}
+
+.rule-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 4px;
+  gap: 8px;
+}
+
+.rule-item:hover {
+  background: var(--bg-hover);
+}
+
+.rule-name {
+  flex: 1;
+  font-size: var(--text-caption);
+  color: var(--text-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rule-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.rule-item:hover .rule-actions {
+  opacity: 1;
+}
+
+/* ========== Footer ========== */
+.sidebar-footer {
+  padding: var(--space-md);
+  border-top: 1px solid var(--border-light);
+}
+
+.auth-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.auth-btn {
+  flex: 1;
+}
+
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--warning) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--text-white);
+  font-size: 16px;
+}
+
+.user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-name {
+  font-weight: 600;
+  color: var(--text-title);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-role {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.user-settings-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+
+.user-settings-btn:hover {
+  background: var(--bg-hover);
+}
+
+/* ========== Model tag styles ========== */
+:deep(.model-tag) {
+  font-size: 0.65rem;
   padding: 0 4px;
   line-height: 16px;
   border-radius: var(--radius-sm);
+  flex-shrink: 0;
 }
 
 :deep(.model-tag--openai) {

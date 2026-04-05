@@ -67,7 +67,7 @@
   /* ========== 排版系统 ========== */
   /* 基于 1.25 (Major Third) 比例，以 16px 正文字号为基础 */
   --text-caption: 0.75rem;    /* 12px - 最小说明文字 */
-  --text-secondary: 0.875rem; /* 14px - 次要文字 */
+  --text-small: 0.875rem;     /* 14px - 次要文字（字号） */
   --text-body-size: 1rem;     /* 16px - 正文字号 (WCAG推荐最小值) */
   --text-subheading: 1.25rem; /* 20px - 小标题 */
   --text-heading: 1.5rem;     /* 24px - 标题 */
@@ -122,6 +122,10 @@ html[data-theme="dark"] {
   /* 模型标签颜色 - 在暗色模式下Qwen标签也需要调整为深色背景 */
   --qwen-bg: #2D2D50;
   --qwen-text: #A0A0FF;
+  --gemini-bg: rgba(139, 92, 246, 0.25);
+  --gemini-text: #A78BFA;
+  --volcano-bg: rgba(232, 69, 69, 0.25);
+  --volcano-text: #FF8585;
 
   /* 阴影系统 */
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
@@ -131,7 +135,7 @@ html[data-theme="dark"] {
 
   /* 排版系统 */
   --text-caption: 0.75rem;
-  --text-secondary: 0.875rem;
+  --text-small: 0.875rem;
   --text-body-size: 1rem;
   --text-subheading: 1.25rem;
   --text-heading: 1.5rem;
@@ -184,6 +188,10 @@ html[data-theme="light"] {
   /* 模型标签颜色 */
   --qwen-bg: #E6E6FF;
   --qwen-text: #5050A0;
+  --gemini-bg: rgba(139, 92, 246, 0.15);
+  --gemini-text: #8B5CF6;
+  --volcano-bg: rgba(232, 69, 69, 0.15);
+  --volcano-text: #E84545;
 
   /* 阴影系统 */
   --shadow-sm: 0 2px 8px rgba(45, 42, 38, 0.06);
@@ -193,7 +201,7 @@ html[data-theme="light"] {
 
   /* 排版系统 */
   --text-caption: 0.75rem;
-  --text-secondary: 0.875rem;
+  --text-small: 0.875rem;
   --text-body-size: 1rem;
   --text-subheading: 1.25rem;
   --text-heading: 1.5rem;
@@ -246,6 +254,10 @@ html[data-theme="light"] {
     /* 模型标签颜色 */
     --qwen-bg: #2D2D50;
     --qwen-text: #A0A0FF;
+    --gemini-bg: rgba(139, 92, 246, 0.25);
+    --gemini-text: #A78BFA;
+    --volcano-bg: rgba(232, 69, 69, 0.25);
+    --volcano-text: #FF8585;
 
     /* 阴影系统 */
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
@@ -255,7 +267,7 @@ html[data-theme="light"] {
 
     /* 排版系统 */
     --text-caption: 0.75rem;
-    --text-secondary: 0.875rem;
+    --text-small: 0.875rem;
     --text-body-size: 1rem;
     --text-subheading: 1.25rem;
     --text-heading: 1.5rem;

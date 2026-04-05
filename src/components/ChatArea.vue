@@ -53,6 +53,11 @@ const displayMessages = computed(() => {
   return props.currentViewMode === 'history' ? props.historyMessages : props.messages
 })
 
+// Available users for dropdown (not already added)
+const availableUsers = computed(() => {
+  return props.userList.filter(user => !props.userConfig.includes(user.id))
+})
+
 // Sync localActiveCollapse with prop changes
 watch(() => props.activeCollapse, (newVal) => {
   localActiveCollapse.value = newVal || []
@@ -71,13 +76,24 @@ const getModelTagClass = (modelType) => {
 
 const getModelDisplayName = (modelType) => {
   const nameMap = {
-    'OPENAI': 'OpenAI GPT',
-    'MINIMAX': 'MiniMax',
-    'VOLCANO': '字节 火山',
-    'QWEN': '阿里 千问',
-    'GEMINI': 'Google Gemini'
+    'OPENAI': 'GPT',
+    'MINIMAX': 'Mini',
+    'VOLCANO': '火山',
+    'QWEN': '千问',
+    'GEMINI': 'Gemini'
   }
   return nameMap[modelType] || modelType
+}
+
+const getParticipantAvatarStyle = (modelType) => {
+  const styleMap = {
+    'OPENAI': 'background: linear-gradient(135deg, var(--success) 0%, var(--success-hover) 100%);',
+    'MINIMAX': 'background: linear-gradient(135deg, var(--warning) 0%, #E09A00 100%);',
+    'VOLCANO': 'background: linear-gradient(135deg, var(--danger) 0%, var(--danger-hover) 100%);',
+    'QWEN': 'background: linear-gradient(135deg, #7070FF 0%, #5050D0 100%);',
+    'GEMINI': 'background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%);'
+  }
+  return styleMap[modelType] || 'background: linear-gradient(135deg, var(--primary) 0%, var(--warning) 100%);'
 }
 
 const formatTime = (timeStr) => {
@@ -289,28 +305,38 @@ const getMessageClass = (message) => {
             <span class="collapse-hint">{{ usersExpanded ? '收起' : '展开' }}</span>
           </div>
           <div class="config-card-body">
-            <div>
-              <div class="user-list">
-                <div v-for="(userId, index) in userConfig" :key="index" class="user-item">
-                  <span class="user-index">{{ index + 1 }}</span>
-                  <ElSelect :model-value="userConfig[index]" placeholder="选择用户" class="user-select" style="width: 100%;" @change="val => $emit('update-session', val, index)">
-                    <ElOption
-                      v-for="user in userList"
-                      :key="user.id"
-                      :label="user.name"
-                      :value="user.id"
-                    >
-                      {{ user.name }} <span class="user-model-tag">({{ user.modelType }})</span>
-                    </ElOption>
-                  </ElSelect>
-                  <ElButton size="mini" style="color: var(--danger); background: transparent; border: 1px solid var(--danger);" @click="$emit('remove-user', index)">
-                    <i class="el-icon-delete"></i>
-                  </ElButton>
+            <div class="participants">
+              <div v-for="(userId, index) in userConfig" :key="index" class="participant">
+                <div class="participant-avatar" :style="getParticipantAvatarStyle(userList.find(u => u.id === userId)?.modelType)">
+                  {{ userList.find(u => u.id === userId)?.name?.charAt(0) || '?' }}
                 </div>
+                <span class="participant-name">{{ userList.find(u => u.id === userId)?.name || '未选择' }}</span>
+                <span v-if="userList.find(u => u.id === userId)" class="participant-model" :class="getModelTagClass(userList.find(u => u.id === userId)?.modelType).replace('model-tag model-tag--', '')">
+                  {{ getModelDisplayName(userList.find(u => u.id === userId)?.modelType) }}
+                </span>
+                <button class="participant-remove" @click="$emit('remove-user', index)">×</button>
               </div>
-              <ElButton type="primary" size="small" @click="$emit('add-user')" class="add-user-btn" plain>
-                <i class="el-icon-plus"></i> 添加用户
-              </ElButton>
+              <ElDropdown trigger="click" @command="(userId) => $emit('add-user', userId)">
+                <button class="participant-add">
+                  + 添加
+                </button>
+                <template #dropdown>
+                  <ElDropdownMenu>
+                    <ElDropdownItem
+                      v-for="user in availableUsers"
+                      :key="user.id"
+                      :command="user.id"
+                    >
+                      <div class="user-dropdown-item">
+                        <span class="user-dropdown-avatar" :style="getParticipantAvatarStyle(user.modelType)">
+                          {{ user.name?.charAt(0) || '?' }}
+                        </span>
+                        <span class="user-dropdown-name">{{ user.name }}</span>
+                      </div>
+                    </ElDropdownItem>
+                  </ElDropdownMenu>
+                </template>
+              </ElDropdown>
               <div v-if="userConfig.length === 0" class="user-empty">
                 暂未添加用户
               </div>
@@ -361,7 +387,9 @@ const getMessageClass = (message) => {
             <span
               class="message-speaker-btn"
               :class="{ 'speaking': $attrs.currentSpeakingId === message.id }"
-              title="朗读"
+              role="button"
+              :aria-label="'朗读' + message.sender + '的消息'"
+              :title="'朗读' + message.sender + '的消息'"
               @click="$emit('speak-message', message)"
             >
               🔊
@@ -426,6 +454,8 @@ const getMessageClass = (message) => {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  overflow: visible;
 }
 
 .content-header {
@@ -446,6 +476,14 @@ const getMessageClass = (message) => {
 
 /* Mobile responsive adjustments */
 @media screen and (max-width: 768px) {
+  .main-content {
+    overflow: auto;
+    min-height: 0;
+    height: auto;
+    flex: 1;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .content-header {
     padding: 12px 16px;
   }
@@ -466,7 +504,7 @@ const getMessageClass = (message) => {
   }
 
   .config-card-body {
-    padding: 8px 10px;
+    padding: var(--space-md);
   }
 
   .config-row {
@@ -553,24 +591,45 @@ const getMessageClass = (message) => {
 }
 
 .config-form {
-  padding: 12px;
+  padding: var(--space-lg) var(--space-xl);
+  background: var(--bg-card);
   border-bottom: 1px solid var(--border-light);
 }
 
 .config-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-lg);
   align-items: start;
 }
 
+/* Ensure cards expand properly on mobile */
+@media screen and (max-width: 768px) {
+  .config-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .config-card {
+    width: 100%;
+  }
+
+  .config-card.is-full-width {
+    grid-column: auto;
+  }
+}
+
 .config-card {
-  background: var(--bg-card);
+  background: var(--bg-input);
   border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  border-radius: var(--radius-lg);
+  transition: var(--transition);
+}
+
+.config-card:hover {
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-sm);
 }
 
 .config-card.is-collapsed {
@@ -585,36 +644,33 @@ const getMessageClass = (message) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
+  padding: var(--space-md) var(--space-lg);
   background: var(--bg-hover);
   cursor: pointer;
   user-select: none;
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease;
 }
 
 .config-card-header:hover {
   background: var(--bg-active);
-  transform: translateY(-1px);
 }
 
 .config-card:not(.is-collapsed) .config-card-header {
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-light);
-  padding: 8px 12px;
 }
 
 .config-card-title {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-sm);
   font-weight: 600;
-  font-size: var(--text-body-size);
   color: var(--text-title);
 }
 
 .collapse-icon {
   font-size: 12px;
-  transition: transform 0.3s var(--transition-spring);
+  transition: transform 0.3s ease;
   color: var(--text-secondary);
 }
 
@@ -633,40 +689,25 @@ const getMessageClass = (message) => {
 }
 
 .config-card-body {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.3s ease;
-}
-
-.config-card-body > div {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-  padding: 0;
+  display: none;
+  padding: var(--space-lg);
 }
 
 .config-card:not(.is-collapsed) .config-card-body {
-  grid-template-rows: 1fr;
+  display: block;
 }
 
-.config-card:not(.is-collapsed) .config-card-body > div {
-  padding: 6px 8px;
+.config-card-body > div:not(.participants) {
+  display: flex;
+  flex-direction: column;
 }
 
-.user-list {
-  margin-bottom: 10px;
-}
-
-.add-user-btn {
-  width: 100%;
-}
-
+/* ========== Config Row ========== */
 .config-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
 }
 
 .config-row:last-child {
@@ -674,10 +715,10 @@ const getMessageClass = (message) => {
 }
 
 .config-label {
-  flex-shrink: 0;
-  min-width: 24px;
-  font-size: var(--text-caption);
+  min-width: 60px;
+  font-size: 0.875rem;
   color: var(--text-secondary);
+  flex-shrink: 0;
 }
 
 .config-input {
@@ -695,44 +736,120 @@ const getMessageClass = (message) => {
   color: var(--text-secondary);
 }
 
-.user-item {
+/* ========== Participants (Chip Style) ========== */
+.participants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.participant {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-full);
+  transition: var(--transition-spring);
 }
 
-.user-item:last-child {
-  margin-bottom: 0;
+.participant:hover {
+  border-color: var(--primary);
+  transform: scale(1.02);
 }
 
-.user-index {
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+.participant-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--success) 0%, var(--primary) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--primary-light);
-  color: var(--primary);
-  border-radius: 50%;
-  font-size: var(--text-caption);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-white);
+}
+
+.participant-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-title);
+}
+
+.participant-model {
+  font-size: 0.7rem;
   font-weight: 600;
-  transition: transform 0.2s var(--transition-spring);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.user-item:hover .user-index {
-  transform: scale(1.1);
+.participant-model.gpt {
+  background: var(--success-light);
+  color: var(--success);
 }
 
-.user-select {
-  flex: 1;
-  min-width: 0;
+.participant-model.qwen {
+  background: var(--qwen-bg);
+  color: var(--qwen-text);
 }
 
-.user-model-tag {
-  font-size: var(--text-caption);
+.participant-model.minimax {
+  background: var(--warning-light);
+  color: var(--warning-text);
+}
+
+.participant-model.volcano {
+  background: var(--volcano-bg);
+  color: var(--volcano-text);
+}
+
+.participant-model.gemini {
+  background: var(--gemini-bg);
+  color: var(--gemini-text);
+}
+
+.participant-remove {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
   color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: var(--transition);
+}
+
+.participant-remove:hover {
+  background: var(--danger);
+  color: var(--text-white);
+}
+
+.participant-add {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  border: 2px dashed var(--border-primary);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: var(--transition);
+}
+
+.participant-add:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-light);
 }
 
 .user-empty {
@@ -742,18 +859,44 @@ const getMessageClass = (message) => {
   font-size: var(--text-caption);
 }
 
-.helper-text {
-  margin-left: 8px;
-  font-size: var(--text-caption);
-  color: var(--text-secondary);
+.user-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.user-dropdown-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-white);
+  flex-shrink: 0;
+}
+
+.user-dropdown-name {
+  font-size: 0.875rem;
+  color: var(--text-body);
 }
 
 .chat-area {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  scrollbar-width: none; /* Firefox */
+}
+
+.chat-area::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Edge */
 }
 
 .message-item {
@@ -980,10 +1123,9 @@ const getMessageClass = (message) => {
   }
 }
 
-/* 彻底移除默认 outline 和 focus 样式 */
-:deep(*) {
-  outline: none !important;
-  -webkit-tap-highlight-color: transparent !important;
+/* 移除默认 outline，但保留触摸反馈 */
+:deep(*:focus) {
+  outline: none;
 }
 
 @keyframes slideUp {

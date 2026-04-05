@@ -218,7 +218,7 @@ watch(() => props.visible, (newVal) => {
   border: 2px solid white;
   border-radius: 8px;
   box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.4), 0 4px 20px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, box-shadow 0.2s ease;
   pointer-events: none;
   z-index: 10000;
   /* 确保高亮区域背景透明，不遮挡下面内容 */
@@ -333,7 +333,7 @@ watch(() => props.visible, (newVal) => {
   height: 6px;
   border-radius: 50%;
   background: var(--border-light, #ddd);
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, box-shadow 0.2s ease;
 }
 
 .onboarding-step-dot.active {
@@ -341,39 +341,39 @@ watch(() => props.visible, (newVal) => {
   transform: scale(1.2);
 }
 
-[data-theme="dark"] .onboarding-bubble {
+html[data-theme="dark"] .onboarding-bubble {
   background: rgba(45, 42, 38, 0.95);
 }
 
-[data-theme="dark"] .onboarding-bubble-title {
+html[data-theme="dark"] .onboarding-bubble-title {
   color: var(--text-title, #fff);
 }
 
-[data-theme="dark"] .onboarding-bubble-content {
+html[data-theme="dark"] .onboarding-bubble-content {
   color: var(--text-secondary, #aaa);
 }
 
-[data-theme="dark"] .onboarding-bubble.arrow-bottom::before {
+html[data-theme="dark"] .onboarding-bubble.arrow-bottom::before {
   border-bottom-color: rgba(45, 42, 38, 0.95);
 }
 
-[data-theme="dark"] .onboarding-bubble.arrow-top::before {
+html[data-theme="dark"] .onboarding-bubble.arrow-top::before {
   border-top-color: rgba(45, 42, 38, 0.95);
 }
 
-[data-theme="dark"] .onboarding-bubble.arrow-left::before {
+html[data-theme="dark"] .onboarding-bubble.arrow-left::before {
   border-left-color: rgba(45, 42, 38, 0.95);
 }
 
-[data-theme="dark"] .onboarding-bubble.arrow-right::before {
+html[data-theme="dark"] .onboarding-bubble.arrow-right::before {
   border-right-color: rgba(45, 42, 38, 0.95);
 }
 
-[data-theme="dark"] .onboarding-steps-indicator {
+html[data-theme="dark"] .onboarding-steps-indicator {
   border-top-color: var(--border-light, #444);
 }
 
-[data-theme="dark"] .onboarding-step-dot {
+html[data-theme="dark"] .onboarding-step-dot {
   background: var(--border-light, #555);
 }
 </style>

@@ -418,12 +418,13 @@ const deleteUser = async (id) => {
   }
 }
 
-const addUser = () => {
+const addUser = (userId) => {
   if (userList.value.length === 0) {
     ElMessage.warning('请先创建用户')
     return
   }
-  userConfig.value.push(userList.value[0].id)
+  const targetUserId = userId || userList.value[0].id
+  userConfig.value.push(targetUserId)
   updateSession()
 }
 
@@ -692,6 +693,10 @@ const switchToCurrentView = () => {
   historyMessages.value = []
 }
 
+const viewHistory = () => {
+  currentViewMode.value = 'history'
+}
+
 const importHistory = async () => {
   if (!currentSession.value) return
   try {
@@ -716,19 +721,17 @@ const importHistory = async () => {
 const exportMd = async () => {
   try {
     const blob = await sessions.exportSession(currentSession.value.id, 'markdown')
-    const reader = new FileReader()
-    reader.onload = async () => {
-      const base64 = reader.result.split(',')[1]
-      const fileName = `${currentSession.value.name || 'export'}_${Date.now()}.md`
-      await Filesystem.writeFile({
-        path: fileName,
-        data: base64,
-        directory: Directory.Documents,
-        recursive: true
-      })
-      ElMessage.success('已保存到 Documents 文件夹: ' + fileName)
-    }
-    reader.readAsDataURL(blob)
+    const fileName = `${currentSession.value.name || 'export'}_${Date.now()}.md`
+    // 浏览器原生下载方式
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    ElMessage.success('已下载: ' + fileName)
   } catch (e) {
     console.error('Export error:', e)
     ElMessage.error('导出失败: ' + (e.message || e))
@@ -738,19 +741,17 @@ const exportMd = async () => {
 const exportHtml = async () => {
   try {
     const blob = await sessions.exportSession(currentSession.value.id, 'html')
-    const reader = new FileReader()
-    reader.onload = async () => {
-      const base64 = reader.result.split(',')[1]
-      const fileName = `${currentSession.value.name || 'export'}_${Date.now()}.html`
-      await Filesystem.writeFile({
-        path: fileName,
-        data: base64,
-        directory: Directory.Documents,
-        recursive: true
-      })
-      ElMessage.success('已保存到 Documents 文件夹: ' + fileName)
-    }
-    reader.readAsDataURL(blob)
+    const fileName = `${currentSession.value.name || 'export'}_${Date.now()}.html`
+    // 浏览器原生下载方式
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    ElMessage.success('已下载: ' + fileName)
   } catch (e) {
     console.error('Export error:', e)
     ElMessage.error('导出失败: ' + (e.message || e))
@@ -887,6 +888,7 @@ const openDebugDialog = (modelType, config) => {
         @view-history-snapshot="viewHistorySnapshot"
         @delete-history-snapshot="deleteHistorySnapshot"
         @switch-to-current="switchToCurrentView"
+        @view-history="viewHistory"
         @open-account-manager="showAccountManager = true"
         @open-operation-logs="showOperationLogs = true"
         @open-stats="showStats = true"
@@ -1088,10 +1090,13 @@ html, body {
   backdrop-filter: blur(2px);
   opacity: 0;
   transition: opacity 0.3s ease;
+  pointer-events: none;
+  touch-action: none;
 }
 
 .sidebar-overlay.visible {
   opacity: 1;
+  pointer-events: auto;
 }
 
 /* Responsive */
@@ -1124,6 +1129,14 @@ html, body {
 
   .app-container .sidebar.open {
     transform: translateX(0);
+  }
+
+  .app-container .sidebar {
+    pointer-events: none;
+  }
+
+  .app-container .sidebar.open {
+    pointer-events: auto;
   }
 
   .content-header {
@@ -1206,7 +1219,7 @@ html, body {
 
 /* ========== Element Plus Dark Mode Overrides ========== */
 /* Force Element Plus components to use our CSS variables */
-[data-theme="dark"] {
+html[data-theme="dark"] {
   --el-bg-color: var(--bg-card);
   --el-bg-color-overlay: var(--bg-card);
   --el-text-color-primary: var(--text-title);
@@ -1219,302 +1232,302 @@ html, body {
   --el-color-primary: var(--primary);
 }
 
-[data-theme="dark"] .el-dialog {
+html[data-theme="dark"] .el-dialog {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
 }
 
-[data-theme="dark"] .el-dialog__header {
+html[data-theme="dark"] .el-dialog__header {
   border-bottom: 1px solid var(--border-light);
 }
 
-[data-theme="dark"] .el-dialog__title {
+html[data-theme="dark"] .el-dialog__title {
   color: var(--text-title);
 }
 
-[data-theme="dark"] .el-form-item__label {
+html[data-theme="dark"] .el-form-item__label {
   color: var(--text-body);
 }
 
-[data-theme="dark"] .el-input__wrapper {
+html[data-theme="dark"] .el-input__wrapper {
   background: var(--bg-input);
   box-shadow: none;
   border: 1px solid var(--border-primary);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-[data-theme="dark"] .el-input__wrapper:focus-within {
+html[data-theme="dark"] .el-input__wrapper:focus-within {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.2);
 }
 
-[data-theme="dark"] .el-input__inner {
+html[data-theme="dark"] .el-input__inner {
   color: var(--text-body);
 }
 
-[data-theme="dark"] .el-input__inner::placeholder {
+html[data-theme="dark"] .el-input__inner::placeholder {
   color: var(--text-secondary);
 }
 
-[data-theme="dark"] .el-textarea__inner {
+html[data-theme="dark"] .el-textarea__inner {
   background: var(--bg-input);
   color: var(--text-body);
   border: 1px solid var(--border-primary);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-[data-theme="dark"] .el-textarea__inner:focus {
+html[data-theme="dark"] .el-textarea__inner:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.2);
 }
 
-[data-theme="dark"] .el-select-dropdown {
+html[data-theme="dark"] .el-select-dropdown {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
 }
 
-[data-theme="dark"] .el-select-dropdown__item {
+html[data-theme="dark"] .el-select-dropdown__item {
   color: var(--text-body);
 }
 
-[data-theme="dark"] .el-select-dropdown__item.hover,
-[data-theme="dark"] .el-select-dropdown__item:hover {
+html[data-theme="dark"] .el-select-dropdown__item.hover,
+html[data-theme="dark"] .el-select-dropdown__item:hover {
   background: var(--bg-hover);
 }
 
-[data-theme="dark"] .el-tabs__item {
+html[data-theme="dark"] .el-tabs__item {
   color: var(--text-secondary);
 }
 
-[data-theme="dark"] .el-tabs__item.is-active {
+html[data-theme="dark"] .el-tabs__item.is-active {
   color: var(--primary);
 }
 
-[data-theme="dark"] .el-tabs__active-bar {
+html[data-theme="dark"] .el-tabs__active-bar {
   background: var(--primary);
 }
 
-[data-theme="dark"] .el-table {
+html[data-theme="dark"] .el-table {
   background: transparent;
   color: var(--text-body);
 }
 
-[data-theme="dark"] .el-table th.el-table__cell {
+html[data-theme="dark"] .el-table th.el-table__cell {
   background: var(--bg-hover);
   color: var(--text-title);
 }
 
-[data-theme="dark"] .el-table tr {
+html[data-theme="dark"] .el-table tr {
   background: transparent;
 }
 
-[data-theme="dark"] .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+html[data-theme="dark"] .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
   background: var(--bg-hover);
 }
 
-[data-theme="dark"] .el-pagination {
+html[data-theme="dark"] .el-pagination {
   color: var(--text-secondary);
 }
 
-[data-theme="dark"] .el-pagination button {
+html[data-theme="dark"] .el-pagination button {
   background: var(--bg-card);
   color: var(--text-secondary);
 }
 
-[data-theme="dark"] .el-pager li {
+html[data-theme="dark"] .el-pager li {
   background: var(--bg-card);
   color: var(--text-secondary);
 }
 
-[data-theme="dark"] .el-pager li:hover {
+html[data-theme="dark"] .el-pager li:hover {
   color: var(--primary);
 }
 
-[data-theme="dark"] .el-message-box {
+html[data-theme="dark"] .el-message-box {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
 }
 
-[data-theme="dark"] .el-message-box__title {
+html[data-theme="dark"] .el-message-box__title {
   color: var(--text-title);
 }
 
-[data-theme="dark"] .el-message-box__message {
+html[data-theme="dark"] .el-message-box__message {
   color: var(--text-body);
 }
 
 /* Button text colors in dark mode */
-[data-theme="dark"] .el-button {
+html[data-theme="dark"] .el-button {
   color: var(--text-body);
   border-color: var(--border-light);
   background: var(--bg-card);
 }
 
-[data-theme="dark"] .el-button:hover {
+html[data-theme="dark"] .el-button:hover {
   color: var(--primary);
   border-color: var(--primary);
 }
 
-[data-theme="dark"] .el-button--primary {
+html[data-theme="dark"] .el-button--primary {
   color: var(--text-white);
   background: var(--primary);
   border-color: var(--primary);
 }
 
-[data-theme="dark"] .el-button--primary:hover {
+html[data-theme="dark"] .el-button--primary:hover {
   color: var(--text-white);
   background: var(--primary-hover);
   border-color: var(--primary-hover);
 }
 
-[data-theme="dark"] .el-button--danger {
+html[data-theme="dark"] .el-button--danger {
   color: var(--text-white);
   background: var(--danger);
   border-color: var(--danger);
 }
 
-[data-theme="dark"] .el-button--danger:hover {
+html[data-theme="dark"] .el-button--danger:hover {
   color: var(--text-white);
   background: var(--danger-hover);
   border-color: var(--danger-hover);
 }
 
-[data-theme="dark"] .el-button--warning {
+html[data-theme="dark"] .el-button--warning {
   color: var(--text-inverse);
   background: var(--warning);
   border-color: var(--warning);
 }
 
-[data-theme="dark"] .el-button--text {
+html[data-theme="dark"] .el-button--text {
   color: var(--text-secondary);
 }
 
-[data-theme="dark"] .el-button--text:hover {
+html[data-theme="dark"] .el-button--text:hover {
   color: var(--primary);
 }
 
 /* Switch in dark mode */
-[data-theme="dark"] .el-switch {
+html[data-theme="dark"] .el-switch {
   background: var(--border-primary);
 }
 
-[data-theme="dark"] .el-switch.is-checked {
+html[data-theme="dark"] .el-switch.is-checked {
   background: var(--primary);
 }
 
 /* Slider in dark mode */
-[data-theme="dark"] .el-slider__runway {
+html[data-theme="dark"] .el-slider__runway {
   background: var(--border-primary);
 }
 
-[data-theme="dark"] .el-slider__bar {
+html[data-theme="dark"] .el-slider__bar {
   background: var(--primary);
 }
 
-[data-theme="dark"] .el-slider__button {
+html[data-theme="dark"] .el-slider__button {
   border-color: var(--primary);
   background: var(--bg-card);
 }
 
 /* Collapse in dark mode */
-[data-theme="dark"] .el-collapse {
+html[data-theme="dark"] .el-collapse {
   background: transparent;
 }
 
-[data-theme="dark"] .el-collapse-item__header {
+html[data-theme="dark"] .el-collapse-item__header {
   color: var(--text-body);
   border-bottom: 1px solid var(--border-primary);
 }
 
-[data-theme="dark"] .el-collapse-item__content {
+html[data-theme="dark"] .el-collapse-item__content {
   color: var(--text-body);
 }
 
 /* Dropdown menu in dark mode */
-[data-theme="dark"] .el-dropdown-menu {
+html[data-theme="dark"] .el-dropdown-menu {
   background: var(--bg-card);
   border-color: var(--border-light);
 }
 
-[data-theme="dark"] .el-dropdown-menu__item {
+html[data-theme="dark"] .el-dropdown-menu__item {
   color: var(--text-body);
 }
 
-[data-theme="dark"] .el-dropdown-menu__item:hover {
+html[data-theme="dark"] .el-dropdown-menu__item:hover {
   background: var(--bg-hover);
 }
 
-[data-theme="dark"] .el-dropdown-menu__item:focus {
+html[data-theme="dark"] .el-dropdown-menu__item:focus {
   background: var(--bg-hover);
 }
 
 /* Radio in dark mode */
-[data-theme="dark"] .el-radio__label {
+html[data-theme="dark"] .el-radio__label {
   color: var(--text-body);
 }
 
-[data-theme="dark"] .el-radio__input.is-checked .el-radio__inner {
+html[data-theme="dark"] .el-radio__input.is-checked .el-radio__inner {
   background: var(--primary);
   border-color: var(--primary);
 }
 
 /* Tag in dark mode - ensure contrast */
-[data-theme="dark"] .el-tag {
+html[data-theme="dark"] .el-tag {
   background: var(--bg-hover);
   border-color: var(--border-light);
 }
 
-[data-theme="dark"] .el-tag.el-tag--info {
+html[data-theme="dark"] .el-tag.el-tag--info {
   background: var(--bg-hover);
   color: var(--text-secondary);
   border-color: var(--border-light);
 }
 
-[data-theme="dark"] .el-tag--danger {
+html[data-theme="dark"] .el-tag--danger {
   background: rgba(232, 69, 69, 0.15);
   color: var(--danger);
   border-color: transparent;
 }
 
-[data-theme="dark"] .el-tag--success {
+html[data-theme="dark"] .el-tag--success {
   background: rgba(32, 201, 151, 0.15);
   color: var(--success);
   border-color: transparent;
 }
 
-[data-theme="dark"] .el-tag--warning {
+html[data-theme="dark"] .el-tag--warning {
   background: rgba(255, 176, 32, 0.15);
   color: var(--warning);
   border-color: transparent;
 }
 
-[data-theme="dark"] .el-tag--primary {
+html[data-theme="dark"] .el-tag--primary {
   background: rgba(255, 107, 107, 0.15);
   color: var(--primary);
   border-color: transparent;
 }
 
 /* Checkbox in dark mode */
-[data-theme="dark"] .el-checkbox__label {
+html[data-theme="dark"] .el-checkbox__label {
   color: var(--text-body);
 }
 
-[data-theme="dark"] .el-checkbox__input.is-checked .el-checkbox__inner {
+html[data-theme="dark"] .el-checkbox__input.is-checked .el-checkbox__inner {
   background: var(--primary);
   border-color: var(--primary);
 }
 
-[data-theme="dark"] .el-checkbox__inner {
+html[data-theme="dark"] .el-checkbox__inner {
   background: var(--bg-input);
   border-color: var(--border-primary);
 }
 
 /* Input number */
-[data-theme="dark"] .el-input-number {
+html[data-theme="dark"] .el-input-number {
   background: var(--bg-input);
 }
 
-[data-theme="dark"] .el-input-number .el-input__wrapper {
+html[data-theme="dark"] .el-input-number .el-input__wrapper {
   background: var(--bg-input);
 }
 </style>
