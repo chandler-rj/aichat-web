@@ -49,7 +49,6 @@ const updateHighlightPosition = () => {
   nextTick(() => {
     const element = document.querySelector(step.target)
     if (!element) {
-      console.log('OnboardingGuide: Element not found for target:', step.target)
       return
     }
 
@@ -79,7 +78,6 @@ const updateHighlightPosition = () => {
 
     // 获取用户指定的位置偏好
     const dataPosition = element.getAttribute('data-position')
-    console.log('OnboardingGuide: data-position =', dataPosition, 'for', step.target)
 
     // 始终尝试放在上方（用户要求）
     const spaceAbove = rect.top - padding
@@ -92,13 +90,11 @@ const updateHighlightPosition = () => {
       bubbleTop = rect.top - bubbleHeight - gap
       arrowPos = 'bottom'
       bubbleLeft = Math.max(safeMargin, Math.min(elemCenterX - bubbleWidth / 2, viewportWidth - bubbleWidth - safeMargin))
-      console.log('OnboardingGuide: Positioning ABOVE, bubbleTop =', bubbleTop)
     } else {
       // 上方空间不足：气泡在下，箭头在上
       bubbleTop = rect.bottom + gap
       arrowPos = 'top'
       bubbleLeft = Math.max(safeMargin, Math.min(elemCenterX - bubbleWidth / 2, viewportWidth - bubbleWidth - safeMargin))
-      console.log('OnboardingGuide: Positioning BELOW (not enough space above), bubbleTop =', bubbleTop, 'spaceAbove =', spaceAbove, 'needed =', bubbleHeight + gap + safeMargin)
     }
 
     // 约束边界
@@ -110,8 +106,6 @@ const updateHighlightPosition = () => {
       top: `${bubbleTop}px`,
       left: `${bubbleLeft}px`
     }
-
-    console.log('OnboardingGuide: Final bubble position:', bubbleStyle.value, 'arrow:', arrowPos)
   })
 }
 

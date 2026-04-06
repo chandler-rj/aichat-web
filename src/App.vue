@@ -550,15 +550,12 @@ const stopChat = async () => {
 
 const connectWebSocket = () => {
   if (!currentSession.value) {
-    console.log('App: connectWebSocket - 没有当前会话，跳过')
     return
   }
 
   const sessionId = currentSession.value.id
-  console.log('App: connectWebSocket - 开始连接, sessionId:', sessionId, '类型:', typeof sessionId)
 
   websocket.connect(sessionId, (message) => {
-    console.log('App: 收到WebSocket消息:', JSON.stringify(message))
     // 添加新消息到列表
     messages.value.push(message)
     // 滚动到底部
@@ -594,15 +591,12 @@ const sendManualMessage = async () => {
   sending.value = true
   try {
     if (chatMode.value === 'group') {
-      console.log('App: 发送群聊消息, sessionId:', currentSession.value.id)
       const result = await sessions.sendMessage(currentSession.value.id, { content: userMessage.content })
-      console.log('App: 群聊消息已发送, 结果:', result)
     } else {
       for (let i = 0; i < userConfig.value.length; i++) {
         const userId = userConfig.value[i]
         const user = userList.value.find(u => u.id === userId)
         if (!user) continue
-        console.log('App: 发送轮流消息, sessionId:', currentSession.value.id, 'user:', user.name)
         const response = await authorizedFetch(`/sessions/${currentSession.value.id}/send`, {
           method: 'POST',
           headers: {
@@ -619,7 +613,6 @@ const sendManualMessage = async () => {
           const err = await response.json().catch(() => ({ message: `HTTP ${response.status}` }))
           throw new Error(err.message || '发送消息失败')
         }
-        console.log('App: 轮流消息已发送')
         await new Promise(resolve => setTimeout(resolve, 1000))
       }
     }
@@ -1089,7 +1082,7 @@ html, body {
   z-index: 999;
   backdrop-filter: blur(2px);
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.25s ease;
   pointer-events: none;
   touch-action: none;
 }

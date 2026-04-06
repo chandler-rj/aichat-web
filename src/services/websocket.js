@@ -46,7 +46,6 @@ function doConnect() {
     stompClient.heartbeat.incoming = 0
 
     stompClient.connect({'Authorization': `Bearer ${getAccessToken()}`}, (frame) => {
-      console.log('WebSocket: Connected')
       isManualDisconnect = false
 
       // 重新订阅之前的 session
@@ -65,16 +64,13 @@ function doConnect() {
       console.error('WebSocket: STOMP error:', error)
       // 非手动断开，自动重连
       if (!isManualDisconnect) {
-        console.log(`WebSocket: Reconnecting in ${RECONNECT_DELAY}ms...`)
         reconnectTimer = setTimeout(doConnect, RECONNECT_DELAY)
       }
     })
 
     // 监听 WebSocket 断开
     socket.onclose = () => {
-      console.log('WebSocket: Socket closed')
       if (!isManualDisconnect) {
-        console.log(`WebSocket: Reconnecting in ${RECONNECT_DELAY}ms...`)
         reconnectTimer = setTimeout(doConnect, RECONNECT_DELAY)
       }
     }

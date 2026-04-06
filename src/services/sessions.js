@@ -47,11 +47,9 @@ export const sessions = {
 
   // 发送消息
   async sendMessage(sessionId, message) {
-    console.log('sessions.sendMessage: 发送消息到 session', sessionId, message)
     const response = await request('POST', '/sessions/' + sessionId + '/send', message)
     if (response.ok) {
       const result = await response.json()
-      console.log('sessions.sendMessage: 成功', result)
       return result
     }
     // 尝试读取错误信息
