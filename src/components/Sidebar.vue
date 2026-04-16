@@ -51,7 +51,8 @@ const emit = defineEmits([
   'open-account-manager',
   'open-operation-logs',
   'open-stats',
-  'open-model-config'
+  'open-model-config',
+  'open-settings'
 ])
 
 // 折叠状态持久化到 localStorage
@@ -94,7 +95,8 @@ const getModelTagClass = (modelType) => {
     'MINIMAX': 'model-tag model-tag--minimax',
     'VOLCANO': 'model-tag model-tag--volcano',
     'QWEN': 'model-tag model-tag--qwen',
-    'GEMINI': 'model-tag model-tag--gemini'
+    'GEMINI': 'model-tag model-tag--gemini',
+    'XAI': 'model-tag model-tag--xai'
   }
   return classMap[modelType] || 'model-tag el-tag--info'
 }
@@ -105,7 +107,8 @@ const getModelDisplayName = (modelType) => {
     'MINIMAX': 'MiniMax',
     'VOLCANO': '字节 火山',
     'QWEN': '阿里 千问',
-    'GEMINI': 'Google Gemini'
+    'GEMINI': 'Google Gemini',
+    'XAI': 'xAI Grok'
   }
   return nameMap[modelType] || modelType
 }
@@ -158,29 +161,41 @@ const getAvatarUrl = (userId) => {
         </div>
         <!-- 当前会话展开内容 -->
         <div class="nav-expand" :class="{ expanded: sessionCollapseOpen }">
-          <div class="session-list">
-            <ElButton type="primary" size="small" @click="$emit('create-session')" class="create-session-btn">
-              <i class="el-icon-plus"></i> 新建会话
-            </ElButton>
+          <div class="nav-expand-inner">
+            <div class="session-list">
+              <!-- 新建会话按钮 -->
+              <div class="session-item-wrapper">
+                <div class="session-item session-item--add" @click.stop="$emit('create-session')">
+                  <span class="session-add-icon">+</span>
+                  <span class="session-add-text">新建会话</span>
+                </div>
+              </div>
             <div
               v-for="session in sessionList"
               :key="session.id"
-              class="session-item"
-              :class="{ active: currentSession?.id === session.id }"
-              @click="$emit('select-session', session)"
+              class="session-item-wrapper"
             >
-              <div class="session-item-content">
-                <div class="session-item-name">{{ session.name }}</div>
-                <div class="session-item-time">{{ formatTime(session.updateTime) }}</div>
+              <div
+                class="session-item"
+                :class="{ active: currentSession?.id === session.id }"
+                @click="$emit('select-session', session)"
+              >
+                <div class="session-item-content">
+                  <div class="session-item-name">{{ session.name }}</div>
+                  <div class="session-item-time">{{ formatTime(session.updateTime) }}</div>
+                </div>
+                <svg class="session-delete-btn" viewBox="0 0 24 24" width="20" height="20" fill="var(--danger)" @click.stop="$emit('delete-session', session.id)">
+                  <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                </svg>
               </div>
-              <i class="session-delete-btn el-icon-delete" @click.stop="$emit('delete-session', session.id)"></i>
             </div>
             <div v-if="sessionList.length === 0" class="sidebar-empty">暂无会话</div>
+            </div>
           </div>
         </div>
 
         <div
-          class="nav-item"
+          class="nav-item nav-item--expandable"
           :class="{ active: currentViewMode === 'history' }"
           @click="toggleState('history')"
         >
@@ -191,8 +206,9 @@ const getAvatarUrl = (userId) => {
         </div>
         <!-- 历史会话展开内容 -->
         <div class="nav-expand" :class="{ expanded: historyCollapseOpen }">
-          <div v-if="historyGroups.length === 0" class="sidebar-empty">暂无历史会话</div>
-          <div v-else class="history-list">
+          <div class="nav-expand-inner">
+            <div v-if="historyGroups.length === 0" class="sidebar-empty">暂无历史会话</div>
+            <div v-else class="history-list">
             <div v-for="group in historyGroups" :key="group.sessionId" class="history-group">
               <div class="history-group__title">{{ group.sessionName || '已删除会话' }}</div>
               <div class="history-snapshots">
@@ -204,9 +220,12 @@ const getAvatarUrl = (userId) => {
                   @click="$emit('view-history-snapshot', snapshot)"
                 >
                   <span class="snapshot-time">{{ formatTime(snapshot.snapshotTime) }}</span>
-                  <i class="snapshot-delete el-icon-delete" @click.stop="$emit('delete-history-snapshot', snapshot.id)"></i>
+                  <svg class="snapshot-delete" viewBox="0 0 24 24" width="20" height="20" fill="var(--danger)" @click.stop="$emit('delete-history-snapshot', snapshot.id)">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                  </svg>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         </div>
@@ -223,21 +242,27 @@ const getAvatarUrl = (userId) => {
         </div>
         <!-- 角色配置展开内容 -->
         <div class="nav-expand" :class="{ expanded: userCollapseOpen }">
-          <div class="expand-content">
-            <ElButton type="primary" size="small" @click="$emit('add-user')" class="add-btn">
-              <i class="el-icon-plus"></i> 添加角色
-            </ElButton>
-            <div v-if="userList.length === 0" class="sidebar-empty">暂无用户，请添加</div>
-            <div v-else class="user-list">
-              <div v-for="user in userList" :key="user.id" class="user-item">
-                <img :src="getAvatarUrl(user.id) + '?t=' + (avatarUpdateTime[user.id] || '')" class="user-avatar" @error="handleAvatarError" />
-                <div class="user-info">
-                  <span class="user-name">{{ user.name }}</span>
-                  <ElTag size="small" :class="getModelTagClass(user.modelType)">{{ getModelDisplayName(user.modelType) }}</ElTag>
-                </div>
-                <div class="user-actions">
-                  <span class="icon-btn" @click="$emit('edit-user', user)" title="编辑">✏️</span>
-                  <span class="icon-btn icon-btn--danger" @click="$emit('delete-user', user.id)" title="删除">🗑️</span>
+          <div class="nav-expand-inner">
+            <div class="expand-content">
+              <!-- 添加用户按钮 -->
+              <div class="add-item-btn" @click.stop="$emit('add-user')">
+                <span class="add-item-icon">+</span>
+                <span class="add-item-text">添加角色</span>
+              </div>
+              <div v-if="userList.length === 0" class="sidebar-empty">暂无用户，请添加</div>
+              <div v-else class="user-list">
+                <div v-for="user in userList" :key="user.id" class="user-item">
+                  <img :src="getAvatarUrl(user.id) + '?t=' + (avatarUpdateTime[user.id] || '')" class="user-avatar" @error="handleAvatarError" />
+                  <div class="user-info">
+                    <span class="user-name">{{ user.name }}</span>
+                    <ElTag size="small" :class="getModelTagClass(user.modelType)">{{ getModelDisplayName(user.modelType) }}</ElTag>
+                  </div>
+                  <div class="user-actions">
+                    <span class="icon-btn" @click="$emit('edit-user', user)" title="编辑">✏️</span>
+                    <svg class="icon-btn icon-btn--danger" viewBox="0 0 24 24" width="20" height="20" fill="var(--danger)" @click="$emit('delete-user', user.id)" title="删除">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                  </svg>
+                  </div>
                 </div>
               </div>
             </div>
@@ -251,17 +276,23 @@ const getAvatarUrl = (userId) => {
         </div>
         <!-- 规则维护展开内容 -->
         <div class="nav-expand" :class="{ expanded: ruleCollapseOpen }">
-          <div class="expand-content">
-            <ElButton type="primary" size="small" @click="$emit('add-rule')" class="add-btn">
-              <i class="el-icon-plus"></i> 添加规则
-            </ElButton>
-            <div v-if="ruleList.length === 0" class="sidebar-empty">暂无规则，请添加</div>
-            <div v-else class="rule-list">
-              <div v-for="rule in ruleList" :key="rule.id" class="rule-item">
-                <span class="rule-name">{{ rule.name }}</span>
-                <div class="rule-actions">
-                  <span class="icon-btn" @click="$emit('edit-rule', rule)" title="编辑">✏️</span>
-                  <span class="icon-btn icon-btn--danger" @click="$emit('delete-rule', rule.id)" title="删除">🗑️</span>
+          <div class="nav-expand-inner">
+            <div class="expand-content">
+              <!-- 添加规则按钮 -->
+              <div class="add-item-btn" @click.stop="$emit('add-rule')">
+                <span class="add-item-icon">+</span>
+                <span class="add-item-text">添加规则</span>
+              </div>
+              <div v-if="ruleList.length === 0" class="sidebar-empty">暂无规则，请添加</div>
+              <div v-else class="rule-list">
+                <div v-for="rule in ruleList" :key="rule.id" class="rule-item">
+                  <span class="rule-name">{{ rule.name }}</span>
+                  <div class="rule-actions">
+                    <span class="icon-btn" @click="$emit('edit-rule', rule)" title="编辑">✏️</span>
+                    <svg class="icon-btn icon-btn--danger" viewBox="0 0 24 24" width="20" height="20" fill="var(--danger)" @click="$emit('delete-rule', rule.id)" title="删除">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                  </svg>
+                  </div>
                 </div>
               </div>
             </div>
@@ -304,8 +335,11 @@ const getAvatarUrl = (userId) => {
           <div class="user-name">{{ currentUser?.username }}</div>
           <div class="user-role">{{ currentUser?.role === 'ADMIN' ? '管理员' : '用户' }}</div>
         </div>
-        <button class="user-settings-btn" @click="$emit('open-account-manager')" title="设置">
+        <button class="user-settings-btn" @click="$emit('open-settings')" title="设置">
           ⚙️
+        </button>
+        <button class="user-logout-btn" @click="$emit('logout')" title="退出登录">
+          🚪
         </button>
       </div>
     </div>
@@ -458,7 +492,7 @@ const getAvatarUrl = (userId) => {
 .nav-item-arrow {
   font-size: 10px;
   color: var(--text-secondary);
-  transition: transform 0.3s ease;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   margin-left: 4px;
 }
 
@@ -468,15 +502,18 @@ const getAvatarUrl = (userId) => {
 
 /* ========== Expandable Content ========== */
 .nav-expand {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .nav-expand.expanded {
-  max-height: 50vh;
-  overflow-y: auto;
-  overflow-x: hidden;
+  grid-template-rows: 1fr;
+}
+
+.nav-expand-inner {
+  overflow: hidden;
+  min-height: 0;
 }
 
 /* Hide scrollbar for expandable sections */
@@ -486,31 +523,161 @@ const getAvatarUrl = (userId) => {
 }
 
 .expand-content {
-  padding: 8px 8px 8px 32px;
+  padding: 8px 0;
+}
+
+/* ========== Staggered Item Animation ========== */
+.session-item-wrapper,
+.session-item,
+.user-item,
+.rule-item,
+.history-snapshot {
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.nav-expand.expanded .session-item-wrapper,
+.nav-expand.expanded .session-item,
+.nav-expand.expanded .user-item,
+.nav-expand.expanded .rule-item,
+.nav-expand.expanded .history-snapshot {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Wrapper flex layout */
+.session-item-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Add session button */
+.session-item--add {
+  color: var(--text-secondary);
+  border: 1.5px dashed var(--border-primary);
+  background: transparent;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.session-item--add:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--bg-hover);
+}
+
+.session-add-icon {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.session-add-text {
+  font-size: var(--text-caption);
+}
+
+/* Add item button (通用 - 用于角色配置、规则维护等) */
+.add-item-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  margin-bottom: 4px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  border: 1.5px dashed var(--border-primary);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-item-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--bg-hover);
+}
+
+.add-item-icon {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.add-item-text {
+  font-size: var(--text-caption);
+}
+
+/* Stagger delays for items - account for wrapper */
+.session-item-wrapper:nth-child(2) { transition-delay: 0.03s; }
+.session-item-wrapper:nth-child(3) { transition-delay: 0.06s; }
+.session-item-wrapper:nth-child(4) { transition-delay: 0.09s; }
+.session-item-wrapper:nth-child(5) { transition-delay: 0.12s; }
+.session-item-wrapper:nth-child(6) { transition-delay: 0.15s; }
+.session-item-wrapper:nth-child(7) { transition-delay: 0.18s; }
+.session-item-wrapper:nth-child(8) { transition-delay: 0.21s; }
+
+.user-item:nth-child(2) { transition-delay: 0.03s; }
+.user-item:nth-child(3) { transition-delay: 0.06s; }
+.user-item:nth-child(4) { transition-delay: 0.09s; }
+.user-item:nth-child(5) { transition-delay: 0.12s; }
+
+.rule-item:nth-child(2) { transition-delay: 0.03s; }
+.rule-item:nth-child(3) { transition-delay: 0.06s; }
+.rule-item:nth-child(4) { transition-delay: 0.09s; }
+.rule-item:nth-child(5) { transition-delay: 0.12s; }
+
+/* ========== Section Active State ========== */
+.nav-item--expandable.expanded {
+  background: var(--bg-hover);
+}
+
+.nav-item--expandable.expanded .nav-item-text {
+  color: var(--primary);
+  font-weight: var(--font-semibold);
+}
+
+/* ========== Item Hover Micro-interaction ========== */
+.session-item-wrapper:hover,
+.session-item:hover,
+.user-item:hover,
+.rule-item:hover,
+.history-snapshot:hover {
+  transform: translateX(2px);
+}
+
+/* ========== Active Session Highlight ========== */
+.session-item.active {
+  background: var(--bg-active);
+  border-left: 3px solid var(--primary);
+  padding-left: 9px;
+}
+
+.session-item.active .session-item-name {
+  color: var(--primary);
+  font-weight: var(--font-semibold);
 }
 
 .session-list,
 .history-list,
 .user-list,
 .rule-list {
-  padding: 0;
+  padding: 0 8px 0 0;
 }
 
 .session-item {
+  flex: 1;
   display: flex;
   align-items: center;
   padding: 8px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 0.2s ease;
+  min-width: 0;
 }
 
 .session-item:hover {
   background: var(--bg-hover);
-}
-
-.session-item.active {
-  background: var(--bg-active);
 }
 
 .session-item-content {
@@ -533,25 +700,46 @@ const getAvatarUrl = (userId) => {
 }
 
 .session-delete-btn {
-  opacity: 0;
-  font-size: 14px;
-  color: var(--text-secondary);
-  transition: opacity 0.2s, color 0.2s;
+  color: var(--danger);
   cursor: pointer;
   flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 
+.session-item-wrapper:hover .session-delete-btn,
 .session-item:hover .session-delete-btn {
   opacity: 1;
 }
 
-.session-delete-btn:hover {
-  color: var(--danger);
+/* ========== Inline Add Button (in header row) ========== */
+.add-btn-inline {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1.5px dashed var(--border-primary);
+  color: var(--text-secondary);
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  margin-right: 4px;
 }
 
-.create-session-btn {
-  width: 100%;
-  margin-bottom: 8px;
+.add-btn-inline:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--bg-hover);
 }
 
 .history-group {
@@ -559,7 +747,7 @@ const getAvatarUrl = (userId) => {
 }
 
 .history-group__title {
-  font-size: var(--text-caption);
+  font-size: var(--text-secondary);
   color: var(--text-secondary);
   padding: 4px 12px;
   font-weight: 500;
@@ -589,25 +777,19 @@ const getAvatarUrl = (userId) => {
 }
 
 .snapshot-delete {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0;
-  font-size: 14px;
-  color: var(--text-secondary);
-  transition: opacity 0.2s, color 0.2s;
+  transition: opacity 0.2s;
   cursor: pointer;
   flex-shrink: 0;
 }
 
 .history-snapshot:hover .snapshot-delete {
   opacity: 1;
-}
-
-.snapshot-delete:hover {
-  color: var(--danger);
-}
-
-.add-btn {
-  width: 100%;
-  margin-bottom: 8px;
 }
 
 .sidebar-empty {
@@ -665,28 +847,25 @@ const getAvatarUrl = (userId) => {
 }
 
 .icon-btn {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: none;
   background: transparent;
   cursor: pointer;
-  font-size: 12px;
   border-radius: 4px;
-  transition: background-color 0.2s;
-  opacity: 0.6;
+  transition: opacity 0.2s;
+  opacity: 0;
 }
 
 .icon-btn:hover {
-  background: var(--bg-active);
   opacity: 1;
 }
 
 .icon-btn--danger:hover {
-  background: var(--danger);
-  color: white;
+  opacity: 1;
 }
 
 .rule-item {
@@ -797,6 +976,24 @@ const getAvatarUrl = (userId) => {
   background: var(--bg-hover);
 }
 
+.user-logout-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+
+.user-logout-btn:hover {
+  background: var(--bg-hover);
+}
+
 /* ========== Model tag styles ========== */
 :deep(.model-tag) {
   font-size: 0.65rem;
@@ -834,5 +1031,11 @@ const getAvatarUrl = (userId) => {
   background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%);
   color: var(--text-white);
   box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
+}
+
+:deep(.model-tag--xai) {
+  background: linear-gradient(135deg, #10A37F 0%, #0D7A5F 100%);
+  color: var(--text-white);
+  box-shadow: 0 2px 6px rgba(16, 163, 127, 0.3);
 }
 </style>

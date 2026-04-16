@@ -25,6 +25,9 @@ const editingAccount = ref({
   role: 'USER'
 })
 
+// API Key 相关
+const copyingId = ref(null)
+
 watch(() => props.visible, (val) => {
   if (val) {
     accountPage.value = 1
@@ -137,6 +140,56 @@ const formatDateTime = (dateStr) => {
   const d = new Date(dateStr)
   return d.toLocaleString('zh-CN')
 }
+
+// 复制 API Key
+const copyApiKey = async (account) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/admin/accounts/${account.id}/api-key`, {
+      headers: {
+        'Authorization': `Bearer ${getAccessToken()}`
+      }
+    })
+    if (response.ok) {
+      const data = await response.json()
+      await navigator.clipboard.writeText(data.apiKey)
+      copyingId.value = account.id
+      ElMessage.success('API Key 已复制到剪贴板')
+      setTimeout(() => {
+        copyingId.value = null
+      }, 2000)
+    }
+  } catch (e) {
+    ElMessage.error('复制失败')
+  }
+}
+
+// 重置 API Key
+const resetApiKey = async (account) => {
+  try {
+    await ElMessageBox.confirm('重置后旧的 API Key 将立即失效，确定要重置吗？', '确认重置', {
+      confirmButtonText: '确认重置',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    const response = await fetch(`${API_BASE_URL}/admin/accounts/${account.id}/regenerate-api-key`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${getAccessToken()}`
+      }
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      account.apiKey = data.apiKey
+      ElMessage.success('API Key 已重置')
+    }
+  } catch (e) {
+    if (e !== 'cancel') {
+      ElMessage.error(e.message || '重置失败')
+    }
+  }
+}
 </script>
 
 <template>
@@ -183,13 +236,42 @@ const formatDateTime = (dateStr) => {
           {{ formatDateTime(row.createdAt) }}
         </template>
       </ElTableColumn>
+      <ElTableColumn prop="maskedApiKey" label="API Key" min-width="200">
+        <template #default="{ row }">
+          <div class="api-key-wrapper">
+            <span v-if="row.maskedApiKey" class="api-key-cell">
+              {{ row.maskedApiKey }}
+            </span>
+            <span v-else class="api-key-masked">未设置</span>
+            <el-button
+              v-if="row.maskedApiKey"
+              type="text"
+              size="small"
+              class="copy-btn"
+              :loading="copyingId === row.id"
+              @click="copyApiKey(row)"
+              title="复制"
+            >
+              📋
+            </el-button>
+          </div>
+        </template>
+      </ElTableColumn>
       <ElTableColumn label="操作" width="200">
         <template #default="{ row }">
-          <ElButton type="text" size="small" @click="editAccount(row)">编辑</ElButton>
-          <ElButton type="text" size="small" @click="toggleAccountStatus(row)">
+          <el-button type="text" size="small" @click="editAccount(row)">编辑</el-button>
+          <el-button type="text" size="small" @click="toggleAccountStatus(row)">
             {{ row.status === 'ACTIVE' ? '禁用' : '启用' }}
-          </ElButton>
-          <ElButton type="text" size="small" style="color: var(--danger)" @click="deleteAccount(row.id)">删除</ElButton>
+          </el-button>
+          <el-button
+            type="text"
+            size="small"
+            :style="{ color: row.maskedApiKey ? 'var(--warning)' : 'var(--success)' }"
+            @click="resetApiKey(row)"
+          >
+            {{ row.maskedApiKey ? '重置' : '生成' }}
+          </el-button>
+          <el-button type="text" size="small" style="color: var(--danger)" @click="deleteAccount(row.id)">删除</el-button>
         </template>
       </ElTableColumn>
     </ElTable>
@@ -234,3 +316,27 @@ const formatDateTime = (dateStr) => {
     </ElDialog>
   </ElDialog>
 </template>
+
+<style scoped>
+.api-key-cell {
+  font-family: monospace;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.api-key-masked {
+  color: var(--warning);
+  font-size: 12px;
+}
+
+.api-key-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.copy-btn {
+  padding: 2px 4px;
+  font-size: 12px;
+}
+</style>

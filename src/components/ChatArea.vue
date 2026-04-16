@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, nextTick, watch } from 'vue'
+import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import { ElButton, ElInput, ElTag, ElDropdown, ElDropdownMenu, ElDropdownItem, ElSelect, ElOption, ElCollapse, ElCollapseItem, ElForm, ElFormItem, ElRadioGroup, ElRadio, ElInputNumber, ElMessage } from 'element-plus'
 import API_BASE_URL from '../services/config.js'
 
@@ -48,6 +48,29 @@ const chatArea = ref(null)
 const localActiveCollapse = ref(props.activeCollapse || [])
 const settingsExpanded = ref(false)
 const usersExpanded = ref(false)
+const showMoreMenu = ref(false)
+const moreMenuRef = ref(null)
+const showConfigDrawer = ref(false)
+
+// 点击其他地方关闭更多菜单
+const handleClickOutside = (event) => {
+  if (moreMenuRef.value && !moreMenuRef.value.contains(event.target)) {
+    // 检查点击的是否是菜单按钮本身（菜单按钮会单独处理）
+    const moreBtn = document.querySelector('.header-more-btn')
+    if (moreBtn && moreBtn.contains(event.target)) {
+      return
+    }
+    showMoreMenu.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 
 const displayMessages = computed(() => {
   return props.currentViewMode === 'history' ? props.historyMessages : props.messages
@@ -69,7 +92,8 @@ const getModelTagClass = (modelType) => {
     'MINIMAX': 'model-tag model-tag--minimax',
     'VOLCANO': 'model-tag model-tag--volcano',
     'QWEN': 'model-tag model-tag--qwen',
-    'GEMINI': 'model-tag model-tag--gemini'
+    'GEMINI': 'model-tag model-tag--gemini',
+    'XAI': 'model-tag model-tag--xai'
   }
   return classMap[modelType] || 'model-tag el-tag--info'
 }
@@ -80,7 +104,8 @@ const getModelDisplayName = (modelType) => {
     'MINIMAX': 'Mini',
     'VOLCANO': '火山',
     'QWEN': '千问',
-    'GEMINI': 'Gemini'
+    'GEMINI': 'Gemini',
+    'XAI': 'Grok'
   }
   return nameMap[modelType] || modelType
 }
@@ -91,7 +116,8 @@ const getParticipantAvatarStyle = (modelType) => {
     'MINIMAX': 'background: linear-gradient(135deg, var(--warning) 0%, #E09A00 100%);',
     'VOLCANO': 'background: linear-gradient(135deg, var(--danger) 0%, var(--danger-hover) 100%);',
     'QWEN': 'background: linear-gradient(135deg, #7070FF 0%, #5050D0 100%);',
-    'GEMINI': 'background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%);'
+    'GEMINI': 'background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%);',
+    'XAI': 'background: linear-gradient(135deg, #10A37F 0%, #0D7A5F 100%);'
   }
   return styleMap[modelType] || 'background: linear-gradient(135deg, var(--primary) 0%, var(--warning) 100%);'
 }
@@ -157,219 +183,73 @@ const getMessageClass = (message) => {
   <div class="main-content" v-if="isLoggedIn && (currentSession || currentViewMode === 'history')">
     <!-- 内容头部 -->
     <div class="content-header">
-      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <div class="header-left">
         <div class="content-header-title">
           {{ currentViewMode === 'history' ? (historySession?.name || '历史会话') : (currentSession?.name || '') }}
         </div>
-        <ElTag v-if="currentViewMode === 'current'" :type="isRunning ? 'success' : 'info'" size="small">
-          <i :class="isRunning ? 'el-icon-loading' : ''" style="margin-right: 4px"></i>
-          {{ isRunning ? '运行中' : '已停止' }}
-        </ElTag>
-        <ElTag v-if="currentViewMode === 'history'" type="warning" size="small">
-          <i class="el-icon-time" style="margin-right: 4px"></i>
-          历史记录
-        </ElTag>
       </div>
-      <div style="display: flex; gap: 4px">
-        <ElDropdown trigger="click" @command="handleMoreAction" v-if="currentViewMode === 'current'">
-          <ElButton size="small" type="primary">更多</ElButton>
-          <template #dropdown>
-            <ElDropdownMenu>
-              <ElDropdownItem command="clear" :disabled="isRunning">
-                <i class="el-icon-delete"></i> 清空消息
-              </ElDropdownItem>
-              <ElDropdownItem command="import" :disabled="isRunning || !currentSession">
-                <i class="el-icon-upload2"></i> 导入历史
-              </ElDropdownItem>
-              <ElDropdownItem command="export-md" :disabled="isRunning">
-                <i class="el-icon-document"></i> 导出MD
-              </ElDropdownItem>
-              <ElDropdownItem command="export-html" :disabled="isRunning">
-                <i class="el-icon-tickets"></i> 导出HTML
-              </ElDropdownItem>
-            </ElDropdownMenu>
-          </template>
-        </ElDropdown>
-        <ElButton
+      <div class="header-right">
+        <button class="header-more-btn" @click="showMoreMenu = !showMoreMenu" v-if="currentViewMode === 'current'">⋮</button>
+        <button
           v-if="currentViewMode === 'current'"
-          size="small"
-          :type="isRunning ? 'danger' : 'primary'"
+          class="btn-start"
+          :class="{ 'btn-stop': isRunning }"
           @click="isRunning ? $emit('stop-chat') : $emit('start-chat')"
           data-step="start-chat"
         >
-          <i :class="isRunning ? 'el-icon-video-pause' : 'el-icon-video-play'"></i>
-          {{ isRunning ? '停止' : '开始' }}
-        </ElButton>
+          <svg v-if="!isRunning" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 更多菜单 -->
+    <div class="more-menu" :class="{ 'visible': showMoreMenu }" v-if="currentViewMode === 'current'" ref="moreMenuRef">
+      <div class="more-menu-item" @click="handleMoreAction('clear'); showMoreMenu = false" :class="{ 'disabled': isRunning }">
+        🗑 清空消息
+      </div>
+      <div class="more-menu-item" @click="handleMoreAction('import'); showMoreMenu = false" :class="{ 'disabled': isRunning || !currentSession }">
+        📥 导入历史
+      </div>
+      <div class="more-menu-item" @click="handleMoreAction('export-md'); showMoreMenu = false" :class="{ 'disabled': isRunning }">
+        📄 导出MD
+      </div>
+      <div class="more-menu-item" @click="handleMoreAction('export-html'); showMoreMenu = false" :class="{ 'disabled': isRunning }">
+        📋 导出HTML
       </div>
     </div>
 
     <!-- 运行提示 -->
     <div v-if="isRunning" class="alert-bar alert-bar--success">
-      <i class="el-icon-info"></i> 自动对话已启动，AI会自动回复消息
+      ℹ 自动对话已启动，AI会自动回复消息
     </div>
 
     <!-- 历史视图提示 -->
     <div v-if="currentViewMode === 'history'" class="alert-bar alert-bar--primary" style="display: flex; justify-content: space-between; align-items: center;">
-      <div><i class="el-icon-info"></i> 您正在查看历史记录</div>
-      <ElButton size="small" type="primary" @click="$emit('switch-to-current')">返回当前会话</ElButton>
+      <div>📜 您正在查看历史记录</div>
+      <button class="btn-action btn-action--primary" @click="$emit('switch-to-current')">返回当前会话</button>
     </div>
 
-    <!-- 配置区域 - 紧凑两列布局 -->
-    <div class="config-form" v-if="!isRunning && currentViewMode === 'current'">
-      <div class="config-grid">
-        <!-- 对话设置卡片 -->
-        <div class="config-card" :class="{ 'is-collapsed': !settingsExpanded, 'is-full-width': settingsExpanded }">
-          <div class="config-card-header" @click="settingsExpanded = !settingsExpanded">
-            <span class="config-card-title">
-              <i :class="settingsExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" class="collapse-icon"></i>
-              对话设置
-            </span>
-            <span class="collapse-hint">{{ settingsExpanded ? '收起' : '展开' }}</span>
-          </div>
-          <div class="config-card-body">
-            <div>
-              <div class="config-row">
-                <label class="config-label">主题</label>
-                <ElInput
-                  :model-value="currentSession?.sessionTheme"
-                  type="textarea"
-                  :autosize="{ minRows: 1, maxRows: 8 }"
-                  placeholder="设置对话主题"
-                  @blur="$emit('update-session')"
-                  @input="val => currentSession && (currentSession.sessionTheme = val)"
-                  class="config-input"
-                />
-              </div>
-              <div class="config-row">
-                <label class="config-label">规则</label>
-                <ElSelect
-                  :model-value="selectedRuleId"
-                  placeholder="选择规则"
-                  clearable
-                  class="config-input"
-                  @change="$emit('rule-select', $event)"
-                >
-                  <ElOption
-                    v-for="rule in ruleList"
-                    :key="rule.id"
-                    :label="rule.name"
-                    :value="rule.id"
-                  />
-                </ElSelect>
-              </div>
-              <div class="config-row">
-                <label class="config-label">模式</label>
-                <ElRadioGroup :model-value="chatMode" @change="val => $emit('mode-change', val)" size="small">
-                  <ElRadio label="group">群聊</ElRadio>
-                  <ElRadio label="turn">轮流</ElRadio>
-                </ElRadioGroup>
-              </div>
-              <div class="config-row" v-if="chatMode === 'turn'">
-                <label class="config-label">间隔</label>
-                <div class="config-number">
-                  <ElInputNumber
-                    :model-value="currentSession?.replyInterval || 2000"
-                    :min="1000"
-                    :max="10000"
-                    step="1000"
-                    size="small"
-                    @change="val => $emit('update-field', 'replyInterval', val)"
-                  />
-                  <span class="config-unit">ms</span>
-                </div>
-              </div>
-              <div class="config-row">
-                <label class="config-label">历史</label>
-                <div class="config-number">
-                  <ElInputNumber
-                    :model-value="currentSession?.maxHistoryMessages || 10"
-                    :min="1"
-                    :max="50"
-                    size="small"
-                    @change="val => $emit('update-field', 'maxHistoryMessages', val)"
-                  />
-                  <span class="config-unit">条</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 参与用户卡片 -->
-        <div class="config-card" :class="{ 'is-collapsed': !usersExpanded }">
-          <div class="config-card-header" @click="usersExpanded = !usersExpanded">
-            <span class="config-card-title">
-              <i :class="usersExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" class="collapse-icon"></i>
-              参与用户
-            </span>
-            <span class="collapse-hint">{{ usersExpanded ? '收起' : '展开' }}</span>
-          </div>
-          <div class="config-card-body">
-            <div class="participants">
-              <div v-for="(userId, index) in userConfig" :key="index" class="participant">
-                <div class="participant-avatar" :style="getParticipantAvatarStyle(userList.find(u => u.id === userId)?.modelType)">
-                  {{ userList.find(u => u.id === userId)?.name?.charAt(0) || '?' }}
-                </div>
-                <span class="participant-name">{{ userList.find(u => u.id === userId)?.name || '未选择' }}</span>
-                <span v-if="userList.find(u => u.id === userId)" class="participant-model" :class="getModelTagClass(userList.find(u => u.id === userId)?.modelType).replace('model-tag model-tag--', '')">
-                  {{ getModelDisplayName(userList.find(u => u.id === userId)?.modelType) }}
-                </span>
-                <button class="participant-remove" @click="$emit('remove-user', index)">×</button>
-              </div>
-              <ElDropdown trigger="click" @command="(userId) => $emit('add-user', userId)">
-                <button class="participant-add">
-                  + 添加
-                </button>
-                <template #dropdown>
-                  <ElDropdownMenu>
-                    <ElDropdownItem
-                      v-for="user in availableUsers"
-                      :key="user.id"
-                      :command="user.id"
-                    >
-                      <div class="user-dropdown-item">
-                        <span class="user-dropdown-avatar" :style="getParticipantAvatarStyle(user.modelType)">
-                          {{ user.name?.charAt(0) || '?' }}
-                        </span>
-                        <span class="user-dropdown-name">{{ user.name }}</span>
-                      </div>
-                    </ElDropdownItem>
-                  </ElDropdownMenu>
-                </template>
-              </ElDropdown>
-              <div v-if="userConfig.length === 0" class="user-empty">
-                暂未添加用户
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- 聊天区域 -->
     <div class="chat-area" ref="chatArea">
       <!-- 朗读控制栏 -->
       <div class="alert-bar alert-bar--info" style="justify-content: flex-end;">
-        <ElButton
+        <button
           v-if="!$attrs.isSpeaking && !$attrs.isAutoSpeaking"
-          type="text"
-          size="small"
-          icon="el-icon-volume-up"
-          :disabled="messages.length === 0"
+          class="btn-text"
+          :disabled="displayMessages.length === 0"
           @click="$emit('auto-speak-all')"
         >
           🔊 朗读全部消息
-        </ElButton>
-        <ElButton
+        </button>
+        <button
           v-else
-          type="text"
-          size="small"
-          icon="el-icon-stop"
-          style="color: var(--danger)"
+          class="btn-text btn-text--danger"
           @click="$emit('stop-speaking')"
         >
           ⏹ 停止朗读
-        </ElButton>
+        </button>
       </div>
 
       <div
@@ -416,17 +296,138 @@ const getMessageClass = (message) => {
         placeholder="输入消息，Ctrl+Enter 发送"
         @keyup.enter.ctrl="handleSend"
         @input="$emit('update:manual-message', $event)"
-        style="flex: 1; margin-right: 8px;"
+        class="send-input"
       />
-      <ElButton type="primary" @click="handleSend" :loading="sending" style="align-self: flex-end;">
-        发送
-      </ElButton>
+      <button class="btn-send" @click="handleSend" :disabled="sending">➤</button>
     </div>
     <div v-else-if="currentViewMode === 'history'" class="mode-bar mode-bar--history">
-      <i class="el-icon-view"></i> 历史记录模式 - 仅供查看
+      👁 历史记录模式 - 仅供查看
     </div>
     <div v-else class="mode-bar mode-bar--running">
-      <i class="el-icon-loading"></i> 自动回复模式运行中，点击"停止"结束
+      ⚡ 自动回复模式运行中，点击"停止"结束
+    </div>
+
+    <!-- 底部设置按钮 -->
+    <button class="settings-trigger" @click="showConfigDrawer = true" v-if="!isRunning && currentViewMode === 'current'">⚙</button>
+
+    <!-- 抽屉遮罩 -->
+    <div class="drawer-overlay" :class="{ 'visible': showConfigDrawer }" @click="showConfigDrawer = false"></div>
+
+    <!-- 底部配置抽屉 -->
+    <div class="config-drawer" :class="{ 'visible': showConfigDrawer }" v-if="!isRunning && currentViewMode === 'current'">
+      <div class="drawer-handle"></div>
+      <div class="drawer-header">
+        <div class="drawer-title">⚙ 会话配置</div>
+        <button class="drawer-close" @click="showConfigDrawer = false">✕</button>
+      </div>
+      <div class="drawer-content">
+        <!-- 对话设置 -->
+        <div class="drawer-section">
+          <div class="section-title">💬 对话设置</div>
+
+          <div class="config-row">
+            <span class="config-label">主题</span>
+            <ElInput
+              :model-value="currentSession?.sessionTheme"
+              type="textarea"
+              :autosize="{ minRows: 1, maxRows: 4 }"
+              placeholder="设置对话主题..."
+              @blur="$emit('update-session')"
+              @input="val => currentSession && (currentSession.sessionTheme = val)"
+              class="config-input"
+            />
+          </div>
+
+          <div class="config-row">
+            <span class="config-label">规则</span>
+            <ElSelect
+              :model-value="selectedRuleId"
+              placeholder="选择规则"
+              clearable
+              class="config-input"
+              @change="$emit('rule-select', $event)"
+            >
+              <ElOption v-for="rule in ruleList" :key="rule.id" :label="rule.name" :value="rule.id" />
+            </ElSelect>
+          </div>
+
+          <div class="config-row">
+            <span class="config-label">模式</span>
+            <div class="radio-group">
+              <div class="radio-item" :class="{ 'active': chatMode === 'group' }" @click="$emit('mode-change', 'group')">群聊</div>
+              <div class="radio-item" :class="{ 'active': chatMode === 'turn' }" @click="$emit('mode-change', 'turn')">轮流</div>
+            </div>
+          </div>
+
+          <div class="config-row">
+            <span class="config-label">参数</span>
+            <div class="param-group">
+              <div class="param-item">
+                <ElInputNumber
+                  :model-value="currentSession?.replyInterval || 2000"
+                  :min="1000"
+                  :max="10000"
+                  step="1000"
+                  size="small"
+                  @change="val => $emit('update-field', 'replyInterval', val)"
+                />
+                <span class="param-unit">ms</span>
+              </div>
+              <div class="param-item">
+                <ElInputNumber
+                  :model-value="currentSession?.maxHistoryMessages || 10"
+                  :min="1"
+                  :max="50"
+                  size="small"
+                  @change="val => $emit('update-field', 'maxHistoryMessages', val)"
+                />
+                <span class="param-unit">条</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 参与用户 -->
+        <div class="drawer-section">
+          <div class="section-title">👥 参与用户</div>
+          <div class="participant-chips">
+            <div v-for="(userId, index) in userConfig" :key="index" class="participant-chip">
+              <span class="participant-avatar" :style="getParticipantAvatarStyle(userList.find(u => u.id === userId)?.modelType)">
+                {{ userList.find(u => u.id === userId)?.name?.charAt(0) || '?' }}
+              </span>
+              <span class="participant-name">{{ userList.find(u => u.id === userId)?.name || '未选择' }}</span>
+              <span v-if="userList.find(u => u.id === userId)" class="participant-model" :class="getModelTagClass(userList.find(u => u.id === userId)?.modelType).replace('model-tag model-tag--', '')">
+                {{ getModelDisplayName(userList.find(u => u.id === userId)?.modelType) }}
+              </span>
+              <button class="participant-remove" @click="$emit('remove-user', index)">×</button>
+            </div>
+            <el-popover
+              placement="top-start"
+              :width="400"
+              trigger="click"
+              popper-class="user-dropdown-popper"
+            >
+              <template #reference>
+                <button class="add-chip">+</button>
+              </template>
+              <div class="user-grid">
+                <div
+                  v-for="user in availableUsers"
+                  :key="user.id"
+                  class="user-grid-item"
+                  @click="$emit('add-user', user.id)"
+                >
+                  <span class="user-dropdown-avatar" :style="getParticipantAvatarStyle(user.modelType)">
+                    {{ user.name?.charAt(0) || '?' }}
+                  </span>
+                  <span class="user-dropdown-name">{{ user.name }}</span>
+                </div>
+              </div>
+            </el-popover>
+          </div>
+          <div v-if="userConfig.length === 0" class="user-empty">暂未添加用户</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -459,19 +460,38 @@ const getMessageClass = (message) => {
 }
 
 .content-header {
-  padding: 16px 24px;
+  height: 44px;
+  padding: 0 16px;
   border-bottom: 1px solid var(--border-light);
   background: var(--bg-card);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+  height: 100%;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .content-header-title {
   font-size: var(--text-subheading);
   font-weight: var(--font-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Mobile responsive adjustments */
@@ -485,11 +505,23 @@ const getMessageClass = (message) => {
   }
 
   .content-header {
-    padding: 12px 16px;
+    height: 44px;
+    padding: 0 16px 0 calc(60px + env(safe-area-inset-left));
+    box-sizing: border-box;
+  }
+
+  .header-more-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
   }
 
   .config-form {
-    padding: 12px;
+    padding: 8px;
+  }
+
+  .config-card.is-collapsed {
+    margin-bottom: 4px;
   }
 
   .config-grid {
@@ -498,9 +530,17 @@ const getMessageClass = (message) => {
   }
 
   .config-card-header {
-    padding: 12px 16px;
-    min-height: 44px;
+    padding: 8px 12px;
+    min-height: 36px;
     box-sizing: border-box;
+  }
+
+  .config-card-header .collapse-hint {
+    display: none;
+  }
+
+  .config-card-header .config-card-title {
+    font-size: 13px;
   }
 
   .config-card-body {
@@ -552,6 +592,20 @@ const getMessageClass = (message) => {
 
   .control-area {
     padding: 12px;
+  }
+
+  /* Collapsed cards more compact on mobile */
+  .config-card.is-collapsed .config-card-header {
+    padding: 6px 12px;
+    min-height: 32px;
+  }
+
+  .config-card.is-collapsed .collapse-icon {
+    font-size: 10px;
+  }
+
+  .config-card.is-collapsed .config-card-title {
+    font-size: 12px;
   }
 }
 
@@ -670,7 +724,7 @@ const getMessageClass = (message) => {
 
 .collapse-icon {
   font-size: 12px;
-  transition: transform 0.3s ease;
+  transition: transform 0.25s ease;
   color: var(--text-secondary);
 }
 
@@ -866,6 +920,26 @@ const getMessageClass = (message) => {
   padding: 2px 0;
 }
 
+.user-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.user-grid-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.user-grid-item:hover {
+  background: var(--bg-sidebar);
+}
+
 .user-dropdown-avatar {
   width: 24px;
   height: 24px;
@@ -960,6 +1034,11 @@ const getMessageClass = (message) => {
 .message-avatar.gemini,
 .message-avatar.GEMINI {
   background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%);
+}
+
+.message-avatar.xai,
+.message-avatar.XAI {
+  background: linear-gradient(135deg, #10A37F 0%, #0D7A5F 100%);
 }
 
 .message-sender {
@@ -1103,9 +1182,29 @@ const getMessageClass = (message) => {
 .control-area {
   display: flex;
   align-items: flex-end;
-  padding: 16px;
+  padding: 12px 16px;
   border-top: 1px solid var(--border-light);
   background: var(--bg-card);
+  gap: 8px;
+}
+
+.send-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.send-input :deep(.el-textarea__inner) {
+  padding: 10px 14px;
+  border-radius: 20px;
+  resize: none;
+  min-height: 40px !important;
+  max-height: 120px;
+}
+
+html[data-theme="dark"] .send-input :deep(.el-textarea__inner) {
+  background: var(--bg-input);
+  color: var(--text-body);
+  border-color: var(--border-primary);
 }
 
 .mode-bar {
@@ -1114,6 +1213,11 @@ const getMessageClass = (message) => {
   font-size: var(--text-secondary);
   border-top: 1px solid var(--border-light);
   animation: slideUp 0.3s var(--transition-spring);
+}
+
+/* 下拉菜单最大高度和滚动 */
+:deep(.user-dropdown-popper) {
+  max-height: none !important;
 }
 
 /* 重置可能的 ripple 效果 */
@@ -1316,6 +1420,12 @@ const getMessageClass = (message) => {
   box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
 }
 
+:deep(.model-tag--xai) {
+  background: linear-gradient(135deg, #10A37F 0%, #0D7A5F 100%);
+  color: var(--text-white);
+  box-shadow: 0 2px 6px rgba(16, 163, 127, 0.3);
+}
+
 /* Reduced motion - respect user preference */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -1324,6 +1434,642 @@ const getMessageClass = (message) => {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ========== Header More Button ========== */
+.header-more-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--bg-hover);
+  border: none;
+  font-size: 18px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.header-more-btn:hover {
+  background: var(--bg-active);
+  color: var(--text-title);
+}
+
+/* ========== Circular Buttons ========== */
+.btn-circular {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: var(--primary) !important;
+  border: none !important;
+  color: var(--text-white) !important;
+  box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+}
+
+.btn-circular i {
+  margin: 0 !important;
+  font-size: 16px !important;
+}
+
+.btn-circular:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+}
+
+html[data-theme="dark"] .btn-circular {
+  background: var(--primary) !important;
+  color: var(--text-white) !important;
+}
+
+html[data-theme="dark"] .btn-circular:hover {
+  background: var(--primary-hover) !important;
+}
+
+.btn-send {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  border-radius: 50% !important;
+  background-color: transparent !important;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%) !important;
+  border: none !important;
+  color: var(--text-white) !important;
+  font-size: 20px !important;
+  box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3) !important;
+  padding: 0 !important;
+}
+
+.btn-send:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4) !important;
+}
+
+html[data-theme="dark"] .btn-send {
+  background-color: transparent !important;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%) !important;
+  color: var(--text-white) !important;
+  border-color: transparent !important;
+}
+
+html[data-theme="dark"] .btn-send:disabled {
+  background-color: transparent !important;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%) !important;
+  color: var(--text-white) !important;
+  opacity: 0.6;
+}
+
+/* ========== Start/Stop Buttons ========== */
+.btn-start {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 50%;
+  background: transparent;
+  border: 2px solid var(--border-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.btn-start:hover {
+  border-color: var(--border-primary);
+  color: var(--text-secondary);
+}
+
+.btn-start:active {
+  transform: scale(0.95);
+}
+
+.btn-stop {
+  background: transparent;
+  border: 2px solid var(--border-primary);
+  color: var(--text-secondary);
+}
+
+.btn-stop:hover {
+  border-color: var(--border-primary);
+  color: var(--text-secondary);
+}
+
+/* SVG icons in buttons */
+.btn-start svg,
+.btn-stop svg {
+  fill: currentColor;
+  display: block;
+}
+
+/* ========== Unified Action Buttons ========== */
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-small);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.btn-action--primary {
+  background: var(--primary);
+  color: var(--text-white);
+}
+
+.btn-action--primary:hover {
+  background: var(--primary-hover);
+}
+
+html[data-theme="dark"] .btn-action--primary {
+  background: var(--primary);
+  color: var(--text-white);
+}
+
+html[data-theme="dark"] .btn-action--primary:hover {
+  background: var(--primary-hover);
+}
+
+/* Text button style */
+.btn-text {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--text-small);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+}
+
+.btn-text:hover:not(:disabled) {
+  color: var(--primary);
+  background: var(--bg-hover);
+}
+
+.btn-text:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-text--danger {
+  color: var(--danger);
+}
+
+.btn-text--danger:hover:not(:disabled) {
+  color: var(--danger-hover);
+  background: var(--bg-hover);
+}
+
+html[data-theme="dark"] .btn-text {
+  color: var(--text-secondary);
+}
+
+html[data-theme="dark"] .btn-text:hover:not(:disabled) {
+  color: var(--primary);
+}
+
+html[data-theme="dark"] .btn-text--danger {
+  color: var(--danger);
+}
+
+html[data-theme="dark"] .btn-text--danger:hover:not(:disabled) {
+  color: var(--danger-hover);
+}
+
+/* ========== More Menu ========== */
+.more-menu {
+  position: fixed;
+  top: 48px;
+  right: 8px;
+  background: var(--bg-card);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-10px);
+  transition: all 0.2s ease;
+  z-index: 300;
+}
+
+.more-menu.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.more-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  font-size: 14px;
+  color: var(--text-body);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.more-menu-item:hover:not(.disabled) {
+  background: var(--bg-hover);
+}
+
+.more-menu-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ========== Settings Trigger Button ========== */
+.settings-trigger {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+  color: var(--text-white);
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+  z-index: 200;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.settings-trigger:hover {
+  transform: scale(1.05);
+}
+
+.settings-trigger:active {
+  transform: scale(0.95);
+}
+
+/* ========== Drawer Overlay ========== */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 300;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.drawer-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ========== Config Drawer ========== */
+.config-drawer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-card);
+  border-radius: 16px 16px 0 0;
+  z-index: 400;
+  transform: translateY(100%);
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-height: 85vh;
+  max-height: 85dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.config-drawer.visible {
+  transform: translateY(0);
+}
+
+.drawer-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border-light);
+  border-radius: 2px;
+  margin: 8px auto;
+  flex-shrink: 0;
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 16px 12px;
+  border-bottom: 1px solid var(--border-light);
+  flex-shrink: 0;
+}
+
+.drawer-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-title);
+}
+
+.drawer-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-hover);
+  border: none;
+  font-size: 16px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.drawer-close:hover {
+  background: var(--bg-active);
+}
+
+.drawer-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px 20px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ========== Drawer Sections ========== */
+.drawer-section {
+  margin-bottom: 16px;
+}
+
+.drawer-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+/* ========== Drawer Config Rows ========== */
+.config-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.config-row:last-child {
+  margin-bottom: 0;
+}
+
+.config-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  width: 50px;
+  flex-shrink: 0;
+}
+
+.config-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.config-input :deep(.el-textarea__inner) {
+  resize: none;
+  min-height: 36px;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+/* ========== Radio Group ========== */
+.radio-group {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+}
+
+.radio-item {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-input);
+  cursor: pointer;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.radio-item:hover {
+  border-color: var(--border-accent);
+}
+
+.radio-item.active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* ========== Param Group ========== */
+.param-group {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+}
+
+.param-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.param-item :deep(.el-input-number) {
+  width: 80px;
+}
+
+.param-unit {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ========== Participant Chips ========== */
+.participant-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.participant-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 6px 6px;
+  background: var(--bg-hover);
+  border-radius: 20px;
+  font-size: 13px;
+  transition: background 0.2s ease;
+}
+
+.participant-chip:hover {
+  background: var(--bg-active);
+}
+
+.participant-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--success) 0%, var(--success-hover) 100%);
+  color: var(--text-white);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.participant-name {
+  font-weight: 500;
+  color: var(--text-title);
+}
+
+.participant-model {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(32, 201, 151, 0.15);
+  color: var(--success);
+}
+
+.participant-model.gpt {
+  background: rgba(32, 201, 151, 0.15);
+  color: var(--success);
+}
+
+.participant-model.qwen {
+  background: rgba(112, 112, 255, 0.15);
+  color: #7070FF;
+}
+
+.participant-model.minimax {
+  background: rgba(255, 176, 32, 0.15);
+  color: var(--warning);
+}
+
+.participant-model.volcano {
+  background: rgba(232, 69, 69, 0.15);
+  color: var(--danger);
+}
+
+.participant-model.gemini {
+  background: rgba(139, 92, 246, 0.15);
+  color: #8B5CF6;
+}
+
+.participant-remove {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.1);
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 2px;
+  transition: all 0.15s ease;
+}
+
+.participant-remove:hover {
+  background: var(--danger);
+  color: var(--text-white);
+}
+
+.add-chip {
+  padding: 6px 12px;
+  border: 1.5px dashed var(--border-light);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-chip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-light);
+}
+
+.user-empty {
+  text-align: center;
+  padding: 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.user-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.user-dropdown-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-white);
+  flex-shrink: 0;
+}
+
+.user-dropdown-name {
+  font-size: 14px;
+  color: var(--text-body);
+}
+
+/* ========== Mobile Drawer Adjustments ========== */
+@media screen and (max-width: 768px) {
+  .config-drawer {
+    max-height: 90vh;
+    max-height: 90dvh;
+  }
+
+  .drawer-content {
+    padding: 12px 14px 24px;
+  }
+
+  .section-title {
+    font-size: 10px;
+  }
+
+  .config-label {
+    width: 44px;
+    font-size: 12px;
   }
 }
 </style>

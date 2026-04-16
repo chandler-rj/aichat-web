@@ -30,12 +30,34 @@ export async function request(method, url, data = null, isFormData = false) {
 
   const response = await fetch(API_BASE_URL + url, config)
 
-  // 如果返回 401（未授权/Token 过期），清除登录状态
-  // 但登录接口（/auth/login）返回 401 是可能的错误，不要 reload
+  // 如果返回 401（未授权/Token 过期），尝试用刷新令牌续期
+  // 但登录接口（/auth/login）返回 401 是可能的错误，不要处理
   if (response.status === 401 && !url.includes('/auth/login')) {
+    // 尝试用刷新令牌获取新的 access token
+    const refreshToken = getRefreshToken()
+    if (refreshToken) {
+      try {
+        const refreshResponse = await fetch(API_BASE_URL + '/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken })
+        })
+        if (refreshResponse.ok) {
+          const data = await refreshResponse.json()
+          localStorage.setItem('accessToken', data.accessToken)
+          localStorage.setItem('refreshToken', data.refreshToken)
+          // 重新执行原请求
+          headers['Authorization'] = `Bearer ${data.accessToken}`
+          const retryResponse = await fetch(API_BASE_URL + url, { ...config, headers })
+          return retryResponse
+        }
+      } catch (e) {
+        console.error('刷新令牌失败:', e)
+      }
+    }
+    // 刷新失败，清除登录状态并刷新
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
-    // 刷新页面会触发重新初始化，自动跳转到登录
     window.location.reload()
     return response
   }
@@ -154,9 +176,34 @@ export async function authorizedFetch(url, config) {
     credentials: 'include'
   })
 
-  // 如果返回 401（未授权/Token 过期），清除登录状态并刷新
-  // 登录接口返回 401 不需要 reload
+  // 如果返回 401（未授权/Token 过期），尝试用刷新令牌续期
+  // 登录接口返回 401 不需要处理
   if (response.status === 401 && !url.includes('/auth/login')) {
+    const refreshToken = getRefreshToken()
+    if (refreshToken) {
+      try {
+        const refreshResponse = await fetch(API_BASE_URL + '/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken })
+        })
+        if (refreshResponse.ok) {
+          const data = await refreshResponse.json()
+          localStorage.setItem('accessToken', data.accessToken)
+          localStorage.setItem('refreshToken', data.refreshToken)
+          // 重新执行原请求
+          config.headers.Authorization = `Bearer ${data.accessToken}`
+          const retryResponse = await fetch(API_BASE_URL + url, {
+            ...config,
+            credentials: 'include'
+          })
+          return retryResponse
+        }
+      } catch (e) {
+        console.error('刷新令牌失败:', e)
+      }
+    }
+    // 刷新失败，清除登录状态并刷新
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
     window.location.reload()

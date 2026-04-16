@@ -8,7 +8,7 @@ const props = defineProps({
   visible: Boolean,
   mode: {
     type: String,
-    default: 'login' // 'login' or 'register'
+    default: 'login' // 'login' or 'register' or 'forgot'
   }
 })
 
@@ -30,10 +30,17 @@ const registerForm = ref({
   captchaAnswer: ''
 })
 
+const forgotForm = ref({
+  username: '',
+  captchaId: '',
+  captchaAnswer: ''
+})
+
 const captchaUrl = ref('')
 const loginNeedsCaptcha = ref(false)
 const authLoading = ref(false)
 const authError = ref('')
+const sendCodeLoading = ref(false)
 
 watch(() => props.visible, (val) => {
   if (val) {
@@ -49,6 +56,10 @@ watch(() => props.mode, (val) => {
   if (val === 'register') {
     refreshCaptcha()
   }
+  if (val === 'forgot') {
+    forgotForm.value = { username: '', captchaId: '', captchaAnswer: '' }
+    refreshCaptcha()
+  }
 })
 
 const refreshCaptcha = async () => {
@@ -58,6 +69,7 @@ const refreshCaptcha = async () => {
     captchaUrl.value = data.image
     registerForm.value.captchaId = data.captchaId
     loginForm.value.captchaId = data.captchaId
+    forgotForm.value.captchaId = data.captchaId
   } catch (e) {
     console.error('获取验证码失败:', e)
   }
@@ -171,17 +183,56 @@ const handleRegister = async () => {
     authLoading.value = false
   }
 }
+
+// 发送忘记密码邮件
+const sendForgotCode = async () => {
+  if (!forgotForm.value.username) {
+    ElMessage.warning('请输入用户名')
+    return
+  }
+  if (!forgotForm.value.captchaId || !forgotForm.value.captchaAnswer) {
+    ElMessage.warning('请输入图形验证码')
+    return
+  }
+
+  sendCodeLoading.value = true
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: forgotForm.value.username,
+        captchaId: forgotForm.value.captchaId,
+        captchaAnswer: forgotForm.value.captchaAnswer
+      })
+    })
+
+    if (response.ok) {
+      ElMessage.success('重置链接已发送到您的注册邮箱，请查收邮件')
+      handleClose()
+    } else {
+      const data = await response.json()
+      ElMessage.error(data.error || '发送失败')
+      refreshCaptcha()
+      forgotForm.value.captchaAnswer = ''
+    }
+  } catch (e) {
+    ElMessage.error('发送失败，请稍后重试')
+  } finally {
+    sendCodeLoading.value = false
+  }
+}
 </script>
 
 <template>
   <ElDialog
     :model-value="visible"
     @update:model-value="handleClose"
-    :title="mode === 'login' ? '登录' : '注册'"
+    :title="mode === 'login' ? '登录' : mode === 'register' ? '注册' : '忘记密码'"
     width="90%"
     class="dialog--auth"
     :close-on-click-modal="false"
-    @opened="mode === 'register' && refreshCaptcha()"
+    @opened="(mode === 'register' || mode === 'forgot') && refreshCaptcha()"
   >
     <!-- 登录表单 -->
     <ElForm v-if="mode === 'login'" label-width="80px">
@@ -217,6 +268,37 @@ const handleRegister = async () => {
           />
         </div>
       </ElFormItem>
+      <div v-if="authError" class="auth-error">{{ authError }}</div>
+      <div class="auth-links">
+        <span class="auth-link" @click="$emit('forgot')">忘记密码？</span>
+      </div>
+    </ElForm>
+
+    <!-- 忘记密码表单 -->
+    <ElForm v-else-if="mode === 'forgot'" label-width="80px">
+      <ElFormItem label="用户名">
+        <ElInput
+          v-model="forgotForm.username"
+          placeholder="请输入用户名"
+        />
+      </ElFormItem>
+      <ElFormItem label="验证码">
+        <div style="display: flex; gap: 10px;">
+          <ElInput
+            v-model="forgotForm.captchaAnswer"
+            placeholder="请输入验证码"
+            style="flex: 1;"
+            @keyup.enter="sendForgotCode"
+          />
+          <img
+            :src="captchaUrl"
+            @click="refreshCaptcha"
+            style="height: 32px; cursor: pointer; border-radius: 4px;"
+            alt="验证码"
+          />
+        </div>
+      </ElFormItem>
+      <div class="auth-tip">重置链接将发送到您的注册邮箱</div>
       <div v-if="authError" class="auth-error">{{ authError }}</div>
     </ElForm>
 
@@ -269,9 +351,10 @@ const handleRegister = async () => {
     </ElForm>
 
     <template #footer>
-      <ElButton @click="handleClose">取消</ElButton>
+      <ElButton v-if="mode !== 'forgot'" @click="handleClose">取消</ElButton>
       <ElButton v-if="mode === 'login'" type="primary" @click="handleLogin" :loading="authLoading">登录</ElButton>
-      <ElButton v-else type="primary" @click="handleRegister" :loading="authLoading">注册</ElButton>
+      <ElButton v-else-if="mode === 'register'" type="primary" @click="handleRegister" :loading="authLoading">注册</ElButton>
+      <ElButton v-else-if="mode === 'forgot'" type="primary" @click="sendForgotCode" :loading="sendCodeLoading">发送重置链接</ElButton>
     </template>
   </ElDialog>
 </template>
@@ -284,5 +367,26 @@ const handleRegister = async () => {
   padding: 8px;
   background: rgba(232, 69, 69, 0.1);
   border-radius: var(--radius-sm);
+}
+
+.auth-links {
+  margin-top: 8px;
+  text-align: right;
+}
+
+.auth-link {
+  color: var(--primary);
+  font-size: var(--text-secondary);
+  cursor: pointer;
+}
+
+.auth-link:hover {
+  text-decoration: underline;
+}
+
+.auth-tip {
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+  margin-top: 8px;
 }
 </style>

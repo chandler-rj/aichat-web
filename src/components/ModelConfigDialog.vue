@@ -21,7 +21,7 @@ const editingModel = ref(null)
 const editingConfig = ref({})
 
 // 模型列表
-const modelList = ['OPENAI', 'QWEN', 'MINIMAX', 'VOLCANO', 'GEMINI']
+const modelList = ['OPENAI', 'QWEN', 'MINIMAX', 'VOLCANO', 'GEMINI', 'XAI']
 
 // 模型显示名称
 const modelNames = {
@@ -29,7 +29,8 @@ const modelNames = {
   QWEN: '通义千问',
   MINIMAX: 'MiniMax',
   VOLCANO: '字节跳动火山',
-  GEMINI: 'Google Gemini'
+  GEMINI: 'Google Gemini',
+  XAI: 'xAI Grok'
 }
 
 watch(() => props.visible, async (val) => {

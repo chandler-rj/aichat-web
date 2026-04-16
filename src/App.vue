@@ -20,8 +20,8 @@ import ModelConfigDialog from './components/ModelConfigDialog.vue'
 import AccountManager from './components/AccountManager.vue'
 import OperationLogs from './components/OperationLogs.vue'
 import StatsPanel from './components/StatsPanel.vue'
+import SettingsDialog from './components/SettingsDialog.vue'
 import DebugDialog from './components/DebugDialog.vue'
-import OnboardingGuide from './components/OnboardingGuide.vue'
 
 // Theme state
 const isDarkMode = ref(localStorage.getItem('theme') === 'dark' ||
@@ -33,6 +33,7 @@ const isLoggedIn = ref(false)
 const currentUser = ref(null)
 const showLoginDialog = ref(false)
 const showRegisterDialog = ref(false)
+const showForgotDialog = ref(false)
 
 // Session state
 const sessionList = ref([])
@@ -67,6 +68,9 @@ const showAccountManager = ref(false)
 const showOperationLogs = ref(false)
 const showStats = ref(false)
 
+// Settings
+const showSettingsDialog = ref(false)
+
 // Model config
 const showModelConfig = ref(false)
 const globalConfig = ref({
@@ -74,7 +78,8 @@ const globalConfig = ref({
   QWEN: { apiKey: '', baseUrl: 'https://dashscope.aliyuncs.com/api/v1', model: 'qwen-turbo', maxTokens: '2048', temperature: '0.7' },
   MINIMAX: { apiKey: '', baseUrl: 'https://api.minimax.chat/v1', model: 'minimax-2.5', maxTokens: '2048', temperature: '0.7' },
   VOLCANO: { apiKey: '', baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-2.5', maxTokens: '2048', temperature: '0.7' },
-  GEMINI: { apiKey: '', baseUrl: 'https://generativelanguage.googleapis.com/v1beta', model: 'gemini-2.0-flash', maxTokens: '2048', temperature: '0.7' }
+  GEMINI: { apiKey: '', baseUrl: 'https://generativelanguage.googleapis.com/v1beta', model: 'gemini-2.0-flash', maxTokens: '2048', temperature: '0.7' },
+  XAI: { apiKey: '', baseUrl: 'https://api.x.ai/v1', model: 'grok-2', maxTokens: '2048', temperature: '0.7' }
 })
 const testingModel = ref(false)
 
@@ -89,14 +94,6 @@ const editingRule = ref(null)
 // Debug dialog
 const showDebugDialog = ref(false)
 const debugInitialConfig = ref(null)
-
-// Onboarding guide
-const showOnboarding = ref(false)
-
-const finishOnboarding = () => {
-  localStorage.setItem('onboarding_completed', 'true')
-  showOnboarding.value = false
-}
 
 // History
 const historyGroups = ref([])
@@ -146,10 +143,6 @@ onMounted(async () => {
       loadRuleList(),
       loadHistoryGroups()
     ])
-    // 登录后显示新手向导（调试模式：每次都显示）
-    setTimeout(() => {
-      showOnboarding.value = true
-    }, 500)
   }
 })
 
@@ -214,13 +207,14 @@ const handleAuthSuccess = async () => {
       loadRuleList(),
       loadHistoryGroups()
     ])
-    // 登录后显示新手向导（调试模式：每次都显示）
-    setTimeout(() => {
-      showOnboarding.value = true
-    }, 500)
   } catch (e) {
     console.error('获取用户信息失败:', e)
   }
+}
+
+const handleForgotSuccess = () => {
+  showForgotDialog.value = false
+  showLoginDialog.value = true
 }
 
 const resendVerificationEmail = async () => {
@@ -715,7 +709,48 @@ const exportMd = async () => {
   try {
     const blob = await sessions.exportSession(currentSession.value.id, 'markdown')
     const fileName = `${currentSession.value.name || 'export'}_${Date.now()}.md`
-    // 浏览器原生下载方式
+
+    // 检测是否为移动端 (Capacitor)
+    if (typeof window.Capacitor !== 'undefined') {
+      // 尝试使用 Share API（更可靠）
+      if (navigator.share) {
+        try {
+          const file = new File([blob], fileName, { type: 'text/markdown' })
+          await navigator.share({
+            files: [file],
+            title: fileName,
+            text: 'AIChat 导出'
+          })
+          ElMessage.success('已分享文件')
+          return
+        } catch (shareError) {
+          if (shareError.name !== 'AbortError') {
+            console.warn('Share 失败，尝试其他方式:', shareError)
+          } else {
+            return // 用户取消分享
+          }
+        }
+      }
+
+      // 回退：尝试 Filesystem
+      if (window.Capacitor.Plugins?.Filesystem) {
+        try {
+          const base64 = await blobToBase64(blob)
+          const result = await Filesystem.writeFile({
+            path: fileName,
+            data: base64,
+            directory: Directory.Documents,
+            recursive: true
+          })
+          ElMessage.success('已保存到文档: ' + fileName)
+          return
+        } catch (fsError) {
+          console.warn('Filesystem 写入失败:', fsError)
+        }
+      }
+    }
+
+    // PC 端：浏览器原生下载
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -735,7 +770,48 @@ const exportHtml = async () => {
   try {
     const blob = await sessions.exportSession(currentSession.value.id, 'html')
     const fileName = `${currentSession.value.name || 'export'}_${Date.now()}.html`
-    // 浏览器原生下载方式
+
+    // 检测是否为移动端 (Capacitor)
+    if (typeof window.Capacitor !== 'undefined') {
+      // 尝试使用 Share API（更可靠）
+      if (navigator.share) {
+        try {
+          const file = new File([blob], fileName, { type: 'text/html' })
+          await navigator.share({
+            files: [file],
+            title: fileName,
+            text: 'AIChat 导出'
+          })
+          ElMessage.success('已分享文件')
+          return
+        } catch (shareError) {
+          if (shareError.name !== 'AbortError') {
+            console.warn('Share 失败，尝试其他方式:', shareError)
+          } else {
+            return // 用户取消分享
+          }
+        }
+      }
+
+      // 回退：尝试 Filesystem
+      if (window.Capacitor.Plugins?.Filesystem) {
+        try {
+          const base64 = await blobToBase64(blob)
+          const result = await Filesystem.writeFile({
+            path: fileName,
+            data: base64,
+            directory: Directory.Documents,
+            recursive: true
+          })
+          ElMessage.success('已保存到文档: ' + fileName)
+          return
+        } catch (fsError) {
+          console.warn('Filesystem 写入失败:', fsError)
+        }
+      }
+    }
+
+    // PC 端：浏览器原生下载
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -749,6 +825,16 @@ const exportHtml = async () => {
     console.error('Export error:', e)
     ElMessage.error('导出失败: ' + (e.message || e))
   }
+}
+
+// Blob 转 Base64 工具函数
+const blobToBase64 = (blob) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = () => resolve(reader.result.split(',')[1])
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
 }
 
 // Speaking methods
@@ -775,11 +861,17 @@ const speakMessage = (message) => {
   utterance.onend = () => {
     isSpeaking.value = false
     currentSpeakingId.value = null
+    if (isAutoSpeaking.value) {
+      speakNextInAuto()
+    }
   }
 
   utterance.onerror = () => {
     isSpeaking.value = false
     currentSpeakingId.value = null
+    if (isAutoSpeaking.value) {
+      speakNextInAuto()
+    }
   }
 
   window.speechSynthesis.speak(utterance)
@@ -886,6 +978,7 @@ const openDebugDialog = (modelType, config) => {
         @open-operation-logs="showOperationLogs = true"
         @open-stats="showStats = true"
         @open-model-config="showModelConfig = true"
+        @open-settings="showSettingsDialog = true"
       />
 
       <!-- 主内容区 -->
@@ -935,6 +1028,7 @@ const openDebugDialog = (modelType, config) => {
       mode="login"
       @update:visible="showLoginDialog = $event"
       @success="handleAuthSuccess"
+      @forgot="showForgotDialog = true"
     />
 
     <!-- 注册对话框 -->
@@ -943,6 +1037,14 @@ const openDebugDialog = (modelType, config) => {
       mode="register"
       @update:visible="showRegisterDialog = $event"
       @success="handleAuthSuccess"
+    />
+
+    <!-- 忘记密码对话框 -->
+    <AuthDialog
+      :visible="showForgotDialog"
+      mode="forgot"
+      @update:visible="showForgotDialog = $event"
+      @success="handleForgotSuccess"
     />
 
     <!-- 新建会话对话框 -->
@@ -1000,18 +1102,19 @@ const openDebugDialog = (modelType, config) => {
       @update:visible="showStats = $event"
     />
 
+    <!-- 设置对话框 -->
+    <SettingsDialog
+      :visible="showSettingsDialog"
+      @update:visible="showSettingsDialog = $event"
+      @logout="$emit('logout')"
+    />
+
     <!-- 模型调试对话框 -->
     <DebugDialog
       :visible="showDebugDialog"
       :supportedModels="supportedModels"
       :initialConfig="debugInitialConfig"
       @update:visible="showDebugDialog = $event"
-    />
-
-    <!-- 新手向导 -->
-    <OnboardingGuide
-      :visible="showOnboarding"
-      @update:visible="showOnboarding = $event"
     />
   </div>
 </template>
@@ -1522,5 +1625,320 @@ html[data-theme="dark"] .el-input-number {
 
 html[data-theme="dark"] .el-input-number .el-input__wrapper {
   background: var(--bg-input);
+}
+
+/* ========== Additional Dark Mode Fixes ========== */
+
+/* Password input visibility toggle */
+html[data-theme="dark"] .el-input__password-icon,
+html[data-theme="dark"] .el-input__clear {
+  color: var(--text-secondary);
+}
+
+html[data-theme="dark"] .el-input__password-icon:hover,
+html[data-theme="dark"] .el-input__clear:hover {
+  color: var(--primary);
+}
+
+/* Select input */
+html[data-theme="dark"] .el-select__wrapper {
+  background: var(--bg-input);
+  border: 1px solid var(--border-primary);
+  box-shadow: none;
+}
+
+html[data-theme="dark"] .el-select__wrapper:hover {
+  border-color: var(--border-light);
+}
+
+html[data-theme="dark"] .el-select__wrapper.is-focused {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.2);
+}
+
+html[data-theme="dark"] .el-select__selected-item,
+html[data-theme="dark"] .el-select__placeholder {
+  color: var(--text-body);
+}
+
+html[data-theme="dark"] .el-select-dropdown__item {
+  color: var(--text-body);
+}
+
+html[data-theme="dark"] .el-select-dropdown__item.is-selected {
+  color: var(--primary);
+  background: var(--bg-hover);
+}
+
+html[data-theme="dark"] .el-select-dropdown__item.is-hovering {
+  background: var(--bg-hover);
+}
+
+/* Form label */
+html[data-theme="dark"] .el-form-item__label {
+  color: var(--text-body);
+}
+
+/* Dialog body content */
+html[data-theme="dark"] .el-dialog__body {
+  color: var(--text-body);
+}
+
+/* Upload component */
+html[data-theme="dark"] .el-upload-dragger {
+  background: var(--bg-input);
+  border-color: var(--border-primary);
+}
+
+html[data-theme="dark"] .el-upload-dragger:hover {
+  border-color: var(--primary);
+}
+
+html[data-theme="dark"] .el-upload__text {
+  color: var(--text-secondary);
+}
+
+/* Empty state */
+html[data-theme="dark"] .el-empty__description {
+  color: var(--text-secondary);
+}
+
+/* Scrollbar in dark mode */
+html[data-theme="dark"] .el-scrollbar__bar {
+  background: var(--border-primary);
+}
+
+html[data-theme="dark"] .el-scrollbar__thumb {
+  background: var(--border-light);
+}
+
+html[data-theme="dark"] .el-scrollbar__thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Tooltip */
+html[data-theme="dark"] .el-tooltip__popper {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+}
+
+html[data-theme="dark"] .el-tooltip__popper .el-tooltip__arrow::before {
+  background: var(--bg-card);
+  border-color: var(--border-light);
+}
+
+/* Popover */
+html[data-theme="dark"] .el-popover {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+}
+
+html[data-theme="dark"] .el-popover__title {
+  color: var(--text-title);
+}
+
+/* DatePicker */
+html[data-theme="dark"] .el-date-editor {
+  background: var(--bg-input);
+}
+
+html[data-theme="dark"] .el-picker-panel {
+  background: var(--bg-card);
+  border-color: var(--border-light);
+}
+
+html[data-theme="dark"] .el-picker-panel__body {
+  color: var(--text-body);
+}
+
+html[data-theme="dark"] .el-date-table td.available:hover,
+html[data-theme="dark"] .el-date-table td.current:not(.disabled) {
+  background: var(--bg-hover);
+}
+
+html[data-theme="dark"] .el-date-table td.in-range {
+  background: var(--bg-hover);
+}
+
+/* Autocomplete */
+html[data-theme="dark"] .el-autocomplete-suggestion {
+  background: var(--bg-card);
+  border-color: var(--border-light);
+}
+
+html[data-theme="dark"] .el-autocomplete-suggestion li {
+  color: var(--text-body);
+}
+
+html[data-theme="dark"] .el-autocomplete-suggestion li:hover {
+  background: var(--bg-hover);
+}
+
+/* Cascader */
+html[data-theme="dark"] .el-cascader-menu {
+  background: var(--bg-card);
+  border-color: var(--border-light);
+}
+
+html[data-theme="dark"] .el-cascader-menu__list {
+  background: var(--bg-card);
+}
+
+html[data-theme="dark"] .el-cascader-node {
+  color: var(--text-body);
+}
+
+html[data-theme="dark"] .el-cascader-node:hover {
+  background: var(--bg-hover);
+}
+
+html[data-theme="dark"] .el-cascader-node.in-checked-path {
+  color: var(--primary);
+}
+
+/* ColorPicker */
+html[data-theme="dark"] .el-color-picker__trigger {
+  background: var(--bg-input);
+  border-color: var(--border-primary);
+}
+
+/* Transfer */
+html[data-theme="dark"] .el-transfer-panel {
+  background: var(--bg-card);
+  border-color: var(--border-light);
+}
+
+html[data-theme="dark"] .el-transfer-panel__body {
+  background: var(--bg-input);
+}
+
+html[data-theme="dark"] .el-transfer-panel__item {
+  color: var(--text-body);
+}
+
+html[data-theme="dark"] .el-transfer-panel__item:hover {
+  background: var(--bg-hover);
+}
+
+/* Steps */
+html[data-theme="dark"] .el-step__title {
+  color: var(--text-body);
+}
+
+html[data-theme="dark"] .el-step__description {
+  color: var(--text-secondary);
+}
+
+/* Timeline */
+html[data-theme="dark"] .el-timeline-item__content {
+  color: var(--text-body);
+}
+
+/* Card in dialogs */
+html[data-theme="dark"] .el-card {
+  background: var(--bg-card);
+  border-color: var(--border-light);
+}
+
+/* Alert */
+html[data-theme="dark"] .el-alert__title {
+  color: var(--text-body);
+}
+
+/* Loading */
+html[data-theme="dark"] .el-loading-mask {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+html[data-theme="dark"] .el-loading-spinner .el-loading-text {
+  color: var(--text-body);
+}
+
+/* Badge */
+html[data-theme="dark"] .el-badge__content {
+  background: var(--primary);
+}
+
+/* Progress */
+html[data-theme="dark"] .el-progress__text {
+  color: var(--text-secondary);
+}
+
+/* Link */
+html[data-theme="dark"] .el-link__inner {
+  color: var(--primary);
+}
+
+/* Divider */
+html[data-theme="dark"] .el-divider {
+  border-color: var(--border-light);
+}
+
+html[data-theme="dark"] .el-divider__text {
+  background: var(--bg-card);
+  color: var(--text-secondary);
+}
+
+/* Avatar */
+html[data-theme="dark"] .el-avatar {
+  background: var(--bg-hover);
+  color: var(--text-body);
+}
+
+/* Skeleton */
+html[data-theme="dark"] .el-skeleton__item {
+  background: linear-gradient(to right, var(--bg-hover) 8%, var(--bg-card) 18%, var(--bg-hover) 33%);
+}
+
+/* Descriptions */
+html[data-theme="dark"] .el-descriptions__label {
+  color: var(--text-secondary);
+}
+
+html[data-theme="dark"] .el-descriptions__content {
+  color: var(--text-body);
+}
+
+/* Calendar */
+html[data-theme="dark"] .el-calendar {
+  background: var(--bg-card);
+}
+
+html[data-theme="dark"] .el-calendar__header {
+  border-color: var(--border-light);
+}
+
+html[data-theme="dark"] .el-calendar__body {
+  color: var(--text-body);
+}
+
+/* Image */
+html[data-theme="dark"] .el-image__placeholder {
+  background: var(--bg-hover);
+}
+
+/* Backtop */
+html[data-theme="dark"] .el-backtop {
+  background: var(--bg-card);
+  color: var(--text-body);
+}
+
+/* Drawer */
+html[data-theme="dark"] .el-drawer {
+  background: var(--bg-card);
+}
+
+html[data-theme="dark"] .el-drawer__header {
+  border-color: var(--border-light);
+  color: var(--text-title);
+}
+
+html[data-theme="dark"] .el-drawer__body {
+  color: var(--text-body);
+}
+
+/* Dropdown in dialogs */
+html[data-theme="dark"] .el-dropdown-menu__item {
+  color: var(--text-body);
 }
 </style>

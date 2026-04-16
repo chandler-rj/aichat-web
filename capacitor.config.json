@@ -9,6 +9,11 @@
     "Camera": {
       "promptLabelPhoto": "选择照片",
       "promptLabelPicture": "拍照"
+    },
+    "Filesystem": {
+      "ios": {
+        "isAccessMediaLocation": true
+      }
     }
   }
 }
