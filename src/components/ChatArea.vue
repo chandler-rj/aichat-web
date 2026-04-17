@@ -841,7 +841,7 @@ const getMessageClass = (message) => {
   letter-spacing: 0.05em;
 }
 
-.participant-model.gpt {
+.participant-model.openai {
   background: var(--success-light);
   color: var(--success);
 }
@@ -1390,6 +1390,7 @@ html[data-theme="dark"] .send-input :deep(.el-textarea__inner) {
   letter-spacing: 0.05em;
 }
 
+/* Light mode model tag styles */
 :deep(.model-tag--openai) {
   background: linear-gradient(135deg, var(--success) 0%, var(--success-hover) 100%);
   color: var(--text-white);
@@ -1409,20 +1410,57 @@ html[data-theme="dark"] .send-input :deep(.el-textarea__inner) {
 }
 
 :deep(.model-tag--qwen) {
-  background: linear-gradient(135deg, #7070FF 0%, #5050D0 100%);
+  background: linear-gradient(135deg, var(--qwen-text, #7070FF) 0%, #5050D0 100%);
   color: var(--text-white);
   box-shadow: 0 2px 6px rgba(80, 80, 208, 0.3);
 }
 
 :deep(.model-tag--gemini) {
-  background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%);
+  background: linear-gradient(135deg, var(--gemini-text, #8B5CF6) 0%, #6D28D9 100%);
   color: var(--text-white);
   box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
 }
 
 :deep(.model-tag--xai) {
-  background: linear-gradient(135deg, #10A37F 0%, #0D7A5F 100%);
+  background: linear-gradient(135deg, var(--xai-text, #10A37F) 0%, #0D7A5F 100%);
   color: var(--text-white);
+  box-shadow: 0 2px 6px rgba(16, 163, 127, 0.3);
+}
+
+/* Dark mode model tag styles */
+html[data-theme="dark"] :deep(.model-tag--openai) {
+  background: linear-gradient(135deg, var(--success) 0%, var(--success-hover) 100%) !important;
+  color: var(--text-white) !important;
+  box-shadow: 0 2px 6px rgba(32, 201, 151, 0.3);
+}
+
+html[data-theme="dark"] :deep(.model-tag--minimax) {
+  background: linear-gradient(135deg, var(--warning) 0%, #E09A00 100%) !important;
+  color: var(--text-white) !important;
+  box-shadow: 0 2px 6px rgba(255, 176, 32, 0.3);
+}
+
+html[data-theme="dark"] :deep(.model-tag--volcano) {
+  background: linear-gradient(135deg, var(--danger) 0%, var(--danger-hover) 100%) !important;
+  color: var(--text-white) !important;
+  box-shadow: 0 2px 6px rgba(232, 69, 69, 0.3);
+}
+
+html[data-theme="dark"] :deep(.model-tag--qwen) {
+  background: linear-gradient(135deg, var(--qwen-text, #A0A0FF) 0%, #6060C0 100%) !important;
+  color: var(--text-white) !important;
+  box-shadow: 0 2px 6px rgba(80, 80, 208, 0.3);
+}
+
+html[data-theme="dark"] :deep(.model-tag--gemini) {
+  background: linear-gradient(135deg, var(--gemini-text, #A78BFA) 0%, #6D28D9 100%) !important;
+  color: var(--text-white) !important;
+  box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
+}
+
+html[data-theme="dark"] :deep(.model-tag--xai) {
+  background: linear-gradient(135deg, var(--xai-text, #10A37F) 0%, #0D7A5F 100%) !important;
+  color: var(--text-white) !important;
   box-shadow: 0 2px 6px rgba(16, 163, 127, 0.3);
 }
 
@@ -1953,33 +1991,38 @@ html[data-theme="dark"] .btn-text--danger:hover:not(:disabled) {
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 4px;
-  background: rgba(32, 201, 151, 0.15);
+  background: var(--success-light);
   color: var(--success);
 }
 
-.participant-model.gpt {
-  background: rgba(32, 201, 151, 0.15);
+.participant-model.openai {
+  background: var(--success-light);
   color: var(--success);
 }
 
 .participant-model.qwen {
-  background: rgba(112, 112, 255, 0.15);
-  color: #7070FF;
+  background: var(--qwen-bg);
+  color: var(--qwen-text);
 }
 
 .participant-model.minimax {
-  background: rgba(255, 176, 32, 0.15);
+  background: var(--warning-light);
   color: var(--warning);
 }
 
 .participant-model.volcano {
-  background: rgba(232, 69, 69, 0.15);
-  color: var(--danger);
+  background: var(--volcano-bg);
+  color: var(--volcano-text);
 }
 
 .participant-model.gemini {
-  background: rgba(139, 92, 246, 0.15);
-  color: #8B5CF6;
+  background: var(--gemini-bg);
+  color: var(--gemini-text);
+}
+
+.participant-model.xai {
+  background: var(--xai-bg, rgba(16, 163, 127, 0.15));
+  color: var(--xai-text, #10A37F);
 }
 
 .participant-remove {

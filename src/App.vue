@@ -1568,12 +1568,12 @@ html[data-theme="dark"] .el-radio__input.is-checked .el-radio__inner {
 }
 
 /* Tag in dark mode - ensure contrast */
-html[data-theme="dark"] .el-tag {
+html[data-theme="dark"] .el-tag:not(.model-tag) {
   background: var(--bg-hover);
   border-color: var(--border-light);
 }
 
-html[data-theme="dark"] .el-tag.el-tag--info {
+html[data-theme="dark"] .el-tag.el-tag--info:not(.model-tag) {
   background: var(--bg-hover);
   color: var(--text-secondary);
   border-color: var(--border-light);
@@ -1601,6 +1601,72 @@ html[data-theme="dark"] .el-tag--primary {
   background: rgba(255, 107, 107, 0.15);
   color: var(--primary);
   border-color: transparent;
+}
+
+/* Model tag dark mode styles - must override el-tag defaults */
+html[data-theme="dark"] .model-tag {
+  /* Base model-tag - no default grey background */
+}
+
+html[data-theme="dark"] .model-tag--openai {
+  background: linear-gradient(135deg, var(--success) 0%, var(--success-hover) 100%) !important;
+  color: var(--text-white) !important;
+}
+
+html[data-theme="dark"] .model-tag--minimax {
+  background: linear-gradient(135deg, var(--warning) 0%, #E09A00 100%) !important;
+  color: var(--text-white) !important;
+}
+
+html[data-theme="dark"] .model-tag--volcano {
+  background: linear-gradient(135deg, var(--danger) 0%, var(--danger-hover) 100%) !important;
+  color: var(--text-white) !important;
+}
+
+html[data-theme="dark"] .model-tag--qwen {
+  background: linear-gradient(135deg, var(--qwen-text, #A0A0FF) 0%, #6060C0 100%) !important;
+  color: var(--text-white) !important;
+}
+
+html[data-theme="dark"] .model-tag--gemini {
+  background: linear-gradient(135deg, var(--gemini-text, #A78BFA) 0%, #6D28D9 100%) !important;
+  color: var(--text-white) !important;
+}
+
+html[data-theme="dark"] .model-tag--xai {
+  background: linear-gradient(135deg, var(--xai-text, #10A37F) 0%, #0D7A5F 100%) !important;
+  color: var(--text-white) !important;
+}
+
+/* Light mode model tag styles */
+.model-tag--openai {
+  background: linear-gradient(135deg, var(--success) 0%, var(--success-hover) 100%);
+  color: var(--text-white);
+}
+
+.model-tag--minimax {
+  background: linear-gradient(135deg, var(--warning) 0%, #E09A00 100%);
+  color: var(--text-white);
+}
+
+.model-tag--volcano {
+  background: linear-gradient(135deg, var(--danger) 0%, var(--danger-hover) 100%);
+  color: var(--text-white);
+}
+
+.model-tag--qwen {
+  background: linear-gradient(135deg, var(--qwen-text, #7070FF) 0%, #5050D0 100%);
+  color: var(--text-white);
+}
+
+.model-tag--gemini {
+  background: linear-gradient(135deg, var(--gemini-text, #8B5CF6) 0%, #6D28D9 100%);
+  color: var(--text-white);
+}
+
+.model-tag--xai {
+  background: linear-gradient(135deg, var(--xai-text, #10A37F) 0%, #0D7A5F 100%);
+  color: var(--text-white);
 }
 
 /* Checkbox in dark mode */

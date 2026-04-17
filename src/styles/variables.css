@@ -95,6 +95,8 @@
   --gemini-text: #8B5CF6;
   --volcano-bg: rgba(232, 69, 69, 0.15);
   --volcano-text: #E84545;
+  --xai-bg: rgba(16, 163, 127, 0.15);
+  --xai-text: #10A37F;
 }
 
 /* ========== 暗色模式配色 ========== */
@@ -131,13 +133,15 @@ html[data-theme="dark"] {
   --text-white: #FFFFFF;
   --text-inverse: #121218;
 
-  /* 模型标签颜色 - 在暗色模式下Qwen标签也需要调整为深色背景 */
+  /* 模型标签颜色 */
   --qwen-bg: #2D2D50;
   --qwen-text: #A0A0FF;
   --gemini-bg: rgba(139, 92, 246, 0.25);
   --gemini-text: #A78BFA;
   --volcano-bg: rgba(232, 69, 69, 0.25);
   --volcano-text: #FF8585;
+  --xai-bg: rgba(16, 163, 127, 0.25);
+  --xai-text: #10A37F;
 
   /* 阴影系统 */
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
@@ -270,6 +274,8 @@ html[data-theme="light"] {
     --gemini-text: #A78BFA;
     --volcano-bg: rgba(232, 69, 69, 0.25);
     --volcano-text: #FF8585;
+    --xai-bg: rgba(16, 163, 127, 0.25);
+    --xai-text: #10A37F;
 
     /* 阴影系统 */
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
